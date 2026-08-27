@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     )
 
     # App
-    PROJECT_NAME: str = "FastAPI LangChain Template"
+    PROJECT_NAME: str = "DeciTima API"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"

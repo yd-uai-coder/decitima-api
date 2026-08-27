@@ -16,6 +16,31 @@ routes (app/api/routes) → services (app/services) → repositories (app/reposi
 - **models**：SQLAlchemyのORM定義のみ。
 - **ai**：LLM/検索ツールのクライアントとLangGraphのワークフローをまとめた独立パッケージ。servicesから呼び出される。
 
+## DeciTima 固有レイヤー
+
+このリポジトリは DeciTima プロジェクトのバックエンドとして使われる（元テンプレートは `fastapi-langchain-template`）。DeciTima の全体像・開発ポリシー・進行ルール・設計上の決定事項は、ワークスペースルートの `../CLAUDE.md` と `../textbook/Phase-0/` を参照。
+
+上記のレイヤーに加えて、DeciTima では次の 2 層を新設している（設計は `../textbook/Phase-0/Phase-0-3.md`）。
+
+```
+routes → services ─┬→ domain (app/domain)     ※ 純粋。問題・制約・目的・解の型と意味
+                   ├→ algorithms (app/algorithms) ※ 純粋関数。決定論的な計算
+                   └→ repositories → models
+```
+
+- **domain**（`app/domain/{problems,constraints,objectives,solutions}`）：`OptimizationProblem` などの共通スキーマ、制約チェッカー、目的関数の評価。副作用（I/O・DB・時刻・乱数）を持たない。依存してよいのは標準ライブラリと Pydantic のみ。
+- **algorithms**（`app/algorithms/{search,graph,optimization,scheduling,patterns}`）：BFS / Dijkstra / バックトラッキング等。`AlgorithmStrategy` プロトコル（`solve(problem) -> CandidateSolution` + メタデータ）を満たす純粋関数。手実装トラックと産業ソルバートラック（networkx / ortools）が同一インターフェースで並ぶ。`registry` が problem_type → 候補アルゴリズムを持つ（設計は `Phase-0-4.md`）。
+- **Validation と Verification は別サービス**：`services/validation.py`（問題定義の妥当性）と `services/verification.py`（解の制約充足）を分離する（設計は `Phase-0-6.md`）。
+- **依存ライブラリの遅延追加**：`numpy`（Phase 3）/ `networkx`（Phase 4）/ `ortools`（Phase 5）は必要な Phase まで `pyproject.toml` に足さない。Phase 0 時点では上記パッケージは docstring のみの骨子。
+
+### chat 機能の無効化（Phase 10 まで）
+
+テンプレート由来の LLM チャット機能は DeciTima では Phase 10 から扱う。それまでは：
+
+- `app/api/routes/__init__.py` の集約から `chat_router` を外し、`POST /chat` を無効化している。
+- `app/api/routes/chat.py`・`app/ai/`・`app/schemas/chat.py`・`app/schemas/generation.py`・`Conversation`/`Message` モデル・既存マイグレーションは**削除せず保持**（Phase 10 で DeciTima 用ワークフローに作り替える土台）。
+- `app/ai/graph/` 単体のテスト（`tests/unit/test_ai_graph_nodes.py`）はそのまま有効。
+
 ## エラーハンドリングの設計
 
 - `app/core/errors.py`に`AppError`とHTTPステータスコード別の基底例外（`NotFoundError`, `ConflictError`など）を定義し、`app/services/errors.py`に具体的なドメイン例外（`UserAlreadyExistsError`など）をまとめている。
