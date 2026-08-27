@@ -59,6 +59,30 @@ ignore = ["B008"]  # FastAPI Depends() in default args
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
+[tool.pyright]
+# エディタ(VSCode / Pylance)と CLI(uvx pyright)の解析ルートをこの backend/ に固定する。
+# ルート decitima/ を開いて作業しても app パッケージが first-party として解決される。
+include = ["app", "tests"]
+exclude = ["**/__pycache__", ".venv", "alembic/versions"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+
+# 既知の型債務(テンプレート由来)。DeciTima の新規コード(app/domain, app/algorithms 等)は
+# standard で厳格に保ちつつ、下記は当面診断を抑制する。いずれも fastapi-langchain-template
+# への還元候補として別途対応する。
+#   - app/ai/**                         : Phase 10 で DeciTima 用に作り替える際に解消
+#   - app/repositories/conversation.py  : owner スコープの get_by_id override(設計上の割り切り)
+#   - tests/unit/test_ai_graph_nodes.py : GraphState を部分 dict で渡すテスト
+#   - tests/unit/test_auth_service.py   : FakeRedis の型付け未整備
+ignore = [
+    "app/ai",
+    "app/repositories/conversation.py",
+    "tests/unit/test_ai_graph_nodes.py",
+    "tests/unit/test_auth_service.py",
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

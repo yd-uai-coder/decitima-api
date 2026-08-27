@@ -33,6 +33,10 @@ routes → services ─┬→ domain (app/domain)     ※ 純粋。問題・制�
 - **Validation と Verification は別サービス**：`services/validation.py`（問題定義の妥当性）と `services/verification.py`（解の制約充足）を分離する（設計は `Phase-0-6.md`）。
 - **依存ライブラリの遅延追加**：`numpy`（Phase 3）/ `networkx`（Phase 4）/ `ortools`（Phase 5）は必要な Phase まで `pyproject.toml` に足さない。Phase 0 時点では上記パッケージは docstring のみの骨子。
 
+### 型解析（Pylance / pyright）
+
+`backend/pyproject.toml` の `[tool.pyright]` で解析ルートを `backend/` に固定している（`typeCheckingMode = "standard"`）。ワークスペースをどのフォルダで開いても `app` が first-party として解決される。first-party の import が Pylance で赤い場合はまず解析ルートを疑う（詳細は `README.md` の「エディタ / 型チェック」、ルート `../CLAUDE.md` の Notes）。この tooling 設定はテンプレート（`fastapi-langchain-template`）への還元候補。判別子のあるサブタイプ（`Constraint` 系）は、基底に `kind` を宣言すると standard モードで `reportIncompatibleVariableOverride` が出るため、共通フィールドだけの基底 + 各サブタイプが `kind` を宣言する形にする（設計は `../textbook/Phase-0/Phase-0-2.md` §4）。
+
 ### chat 機能の無効化（Phase 10 まで）
 
 テンプレート由来の LLM チャット機能は DeciTima では Phase 10 から扱う。それまでは：

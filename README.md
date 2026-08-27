@@ -145,6 +145,21 @@ uv run ruff check .      # Lint
 uv run ruff format .     # Format
 ```
 
+## エディタ / 型チェック
+
+型解析(VSCode の Pylance、CLI の pyright)の設定は `backend/pyproject.toml` の
+`[tool.pyright]` に集約している。解析ルートを `backend/` に固定しているため、
+**ワークスペースをどのフォルダで開いても `app` パッケージが first-party として解決される**。
+
+- 親ディレクトリ（`decitima-project` など）を開いて作業する場合は、そのワークスペース側の
+  `.vscode/settings.json` に `"python.analysis.extraPaths": ["decitima-api/backend"]` を足すと
+  Pylance がより確実に解決する。
+- CLI で確認: `cd backend && uvx --with pydantic --with pydantic-settings pyright`
+- 設定変更後は VSCode で「Developer: Reload Window」。
+- first-party の import が赤いままなら、まず解析ルートが `backend/` になっているかを疑う
+  （`from route_planner import ...` のような bare import は実行時 `ModuleNotFoundError` にも
+  なるので、`from app.domain.problems.route_planner import ...` と絶対 import にする）。
+
 ## 本番環境
 
 ```bash
