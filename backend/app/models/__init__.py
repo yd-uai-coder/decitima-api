@@ -1,4 +1,8 @@
+# Template
 from app.models.conversation import Conversation, Message
 from app.models.user import User
 
-__all__ = ["Conversation", "Message", "User"]
+# Decitima
+from app.models.optimization import Problem, Solution, BenchmarkRun 
+
+__all__ = ["Conversation", "Message", "Problem", "Solution", "User", "BenchmarkRun"]  

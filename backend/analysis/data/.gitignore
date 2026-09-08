@@ -1,0 +1,4 @@
+# エクスポートの生成物は追跡しない。notebook / テスト用の固定サンプルだけ許可する。
+*
+!.gitignore
+!sample_benchmark_runs.jsonl

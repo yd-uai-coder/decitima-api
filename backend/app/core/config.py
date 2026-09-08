@@ -43,6 +43,18 @@ class Settings(BaseSettings):
     CHAT_RATE_LIMIT_PER_HOUR: int = 20
     CHAT_RATE_LIMIT_PER_DAY: int = 100
 
+    # Rate limit（Decitimaのレート制限。単位時間あたりの上限回数）
+    SOLVE_RATE_LIMIT_PER_HOUR: int = 20
+    SOLVE_RATE_LIMIT_PER_DAY: int = 100
+    SOLVE_TIMEOUT_SECONDS: float = 10.0
+
+    # verifyの時間上限
+    VERIFY_RATE_LIMIT_PER_HOUR: int = 60
+
+    # BenchMark（Decitimaのレート制限。単位時間あたりの上限回数）
+    BENCHMARK_RATE_LIMIT_PER_HOUR: int = 10
+    BENCHMARK_RATE_LIMIT_PER_DAY: int = 50
+
 
 @lru_cache
 def get_settings() -> Settings:

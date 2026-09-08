@@ -126,6 +126,19 @@ Docker Compose経由で実行する場合:
 docker compose exec backend uv run alembic upgrade head
 ```
 
+## 開発用シード
+
+`decitima-ui` の `/login` からログインを試すためのテストユーザーを 1 人作る（冪等・dev 専用）。
+
+```bash
+cd backend
+uv run python -m scripts.seed
+# docker:
+docker compose run --rm backend uv run python -m scripts.seed
+```
+
+作成される資格情報: `example-user@example.com` / `sample-user-0123`（`scripts/seed.py` の `SEED_USER`）。
+
 ## テスト実行方法
 
 ```bash

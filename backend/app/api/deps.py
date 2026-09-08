@@ -15,8 +15,8 @@ from app.services.user import UserService
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
-SessionDep = Annotated[AsyncSession, Depends(get_db)]
-RedisDep = Annotated[Redis, Depends(get_redis)]
+type SessionDep = Annotated[AsyncSession, Depends(get_db)]
+type RedisDep = Annotated[Redis, Depends(get_redis)]
 
 _credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
