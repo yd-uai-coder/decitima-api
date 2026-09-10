@@ -33,6 +33,8 @@ from app.domain.solutions.solution import (
 )
 
 from app.domain.solutions.network_design import NetworkDesignSolution
+from app.domain.solutions.travel_planner import TravelSolution
+from app.domain.problems.travel_planner import Place, TravelData, TravelLeg
 
 
 # Phase 0-2 §7.1 の例題:
@@ -420,4 +422,123 @@ def build_shift_solution(
         status=status,
         assignments=ShiftSolution(assignments=assignments),
         produced_by=AlgorithmMeta(name="manual", family="scheduling", implementation="fixture"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# travel_planning(Knapsack DP)── Phase 7  # (Phase 7-3) ここから下は 7-3 の成果物
+# ---------------------------------------------------------------------------
+
+# 5 拠点。P0 を起点(home)にして予算・時間内で好み加重の効用を最大化する。
+# legs は 5 拠点の(ほぼ)完全グラフ、移動は一律 cost 1 / time 1。
+#   place cost 合計(P1..P4)= 18、time 合計 = 9。閉路(P0 に戻る)の移動は 訪問数+1 本。
+_TRAVEL_PLACES = [
+    Place(id="P0", name="home", value=0, cost=0, duration=0),
+    Place(id="P1", name="museum", value=10, cost=4, duration=2),
+    Place(id="P2", name="park", value=8, cost=3, duration=3),
+    Place(id="P3", name="market", value=6, cost=5, duration=1),
+    Place(id="P4", name="tower", value=12, cost=6, duration=3),
+]
+_TRAVEL_LEGS = [
+    TravelLeg(id=f"L{a}{b}", endpoints=(f"P{a}", f"P{b}"), travel_cost=1, travel_time=1)
+    for a in range(5)
+    for b in range(a + 1, 5)
+]
+
+
+def build_travel_problem(
+    *,
+    budget: float = 25,
+    time_budget: float = 20,
+    start: str | None = "P0",
+    forbidden: list[str] | None = None,
+    required: list[str] | None = None,
+    preferences: dict[str, float] | None = None,
+) -> OptimizationProblem:
+    """例題の Travel Planner。DP / Greedy / BruteForce をかける。"""
+    constraints: list = []
+    if forbidden:
+        constraints.append(ForbiddenConstraint(severity="hard", items=forbidden))
+    if required:
+        constraints.append(RequiredInclusionConstraint(severity="hard", items=required))
+    return OptimizationProblem(
+        problem_type="travel_planning",
+        objectives=[Objective(sense="maximize", target="total_value")],
+        constraints=constraints,
+        data=TravelData(
+            places=list(_TRAVEL_PLACES),
+            legs=list(_TRAVEL_LEGS),
+            budget=budget,
+            time_budget=time_budget,
+            start=start,
+            preferences=preferences or {},
+        ),
+    )
+
+
+def build_scaled_travel_problem(n_places: int, seed: int = 0) -> OptimizationProblem:
+    """place を n_places 個ランダム生成した Travel 問題(規模別の analysis / プロパティテスト用)。
+
+    legs は「一直線に繋ぐ + seed で数本の近道」。RNG の呼び出し順を固定して決定論を保つ。
+    """
+    rng = random.Random(seed)
+    places = [Place(id="P0", name="home", value=0, cost=0, duration=0)]
+    for i in range(1, n_places):
+        places.append(
+            Place(
+                id=f"P{i}",
+                value=rng.randint(1, 15),
+                cost=rng.randint(1, 6),
+                duration=rng.randint(1, 5),
+            )
+        )
+    legs = [
+        TravelLeg(
+            id=f"L{i}",
+            endpoints=(f"P{i}", f"P{i + 1}"),
+            travel_cost=rng.randint(1, 3),
+            travel_time=rng.randint(1, 3),
+        )
+        for i in range(n_places - 1)
+    ]
+    for k in range(max(n_places // 4, 1)):
+        a, b = sorted(rng.sample(range(n_places), 2))
+        legs.append(
+            TravelLeg(
+                id=f"S{k}",
+                endpoints=(f"P{a}", f"P{b}"),
+                travel_cost=rng.randint(2, 5),
+                travel_time=rng.randint(2, 5),
+            )
+        )
+    return OptimizationProblem(
+        problem_type="travel_planning",
+        objectives=[Objective(sense="maximize", target="total_value")],
+        constraints=[],
+        data=TravelData(
+            places=places, legs=legs, budget=20, time_budget=20, start="P0", preferences={}
+        ),
+    )
+
+
+def build_travel_solution(
+    selected_place_ids: list[str],
+    visit_order: list[str],
+    *,
+    total_value: float = 0.0,
+    total_cost: float = 0.0,
+    total_time: float = 0.0,
+    status: SolutionStatus = "valid",
+) -> CandidateSolution:
+    """手組みの TravelSolution を CandidateSolution に包む。"""
+    return CandidateSolution(
+        status=status,
+        assignments=TravelSolution(
+            selected_place_ids=selected_place_ids,
+            visit_order=visit_order,
+            total_value=total_value,
+            total_cost=total_cost,
+            total_time=total_time,
+        ),
+        produced_by=AlgorithmMeta(name="manual", family="optimization", implementation="fixture"),
     )

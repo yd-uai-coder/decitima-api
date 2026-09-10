@@ -9,7 +9,7 @@ from app.domain.problems.problem import OptimizationProblem
 from app.domain.problems.route_planner import RouteData
 from app.domain.problems.shift_scheduler import ShiftData
 from app.domain.problems.network_design import NetworkDesignData
-
+from app.domain.problems.travel_planner import TravelData
 
 @dataclass(frozen=True)
 class SemanticIssue:
@@ -160,6 +160,49 @@ def check_network_has_links(problem: OptimizationProblem) -> list[SemanticIssue]
         ]
     return []
 
+# ---------------------------------------------------------------------------
+# travel_planning
+# ---------------------------------------------------------------------------
+
+def check_travel_place_refs(problem: OptimizationProblem) -> list[SemanticIssue]:
+    """空の訪問候補で予算・時間があっても解けない(何も選べない)。整合性の欠陥。"""
+    if not isinstance(problem.data, TravelData):
+        return []
+    if not problem.data.places:
+        return [SemanticIssue("travel_planning has no candidate places")]
+    return []
+
+
+def check_travel_budget_feasible(problem: OptimizationProblem) -> list[SemanticIssue]:
+    """一番安い place ですら予算を超えるなら、1 つも訪れられない(infeasible)。"""
+    if not isinstance(problem.data, TravelData) or not problem.data.places:
+        return []
+    cheapest = min(p.cost for p in problem.data.places)
+    if cheapest > problem.data.budget:
+        return [
+            SemanticIssue(
+                f"cheapest place costs {cheapest} > budget {problem.data.budget}", infeasible=True
+            )
+        ]
+    return []
+
+
+def check_travel_time_feasible(problem: OptimizationProblem) -> list[SemanticIssue]:
+    """一番短い滞在時間ですら time_budget を超えるなら infeasible。"""
+    if not isinstance(problem.data, TravelData) or not problem.data.places:
+        return []
+    shortest = min(p.duration for p in problem.data.places)
+    if shortest > problem.data.time_budget:
+        return [
+            SemanticIssue(
+                f"shortest place takes {shortest} > time_budget {problem.data.time_budget}",
+                infeasible=True,
+            )
+        ]
+    return []
+
+
+
 
 # ---------------------------------------------------------------------------
 # レジストリ ── problem_type ごとの検査リスト。新しい problem_type はここに 1 エントリ足す
@@ -179,5 +222,10 @@ SEMANTIC_CHECKS: dict[str, list[SemanticCheck]] = {
     "network_design":[
         check_network_link_endpoints,
         check_network_has_links,
+    ],
+    "travel_planning": [
+        check_travel_place_refs,
+        check_travel_budget_feasible,
+        check_travel_time_feasible,
     ],
 }

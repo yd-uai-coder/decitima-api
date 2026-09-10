@@ -16,6 +16,7 @@ from app.domain.problems.problem import (
 from app.domain.problems.route_planner import RouteData, RouteEdge, RouteNode
 from app.domain.problems.shift_scheduler import ShiftData, ShiftSlot, Staff
 from app.domain.problems.network_design import NetworkNode, NetworkLink, NetworkDesignData
+from app.domain.problems.travel_planner import Place, TravelData, TravelLeg  # (Phase 7-3)
 
 __all__ = [
     "AnyConstraint",
@@ -37,4 +38,7 @@ __all__ = [
     "NetworkNode",
     "NetworkLink",
     "NetworkDesignData",
+    "Place",
+    "TravelData",
+    "TravelLeg",
 ]

@@ -22,6 +22,7 @@ from app.domain.problems.problem import OptimizationProblem
 from app.domain.problems.route_planner import RouteData
 from app.domain.problems.shift_scheduler import ShiftData
 from app.domain.solutions.network_design import NetworkDesignSolution
+from app.domain.problems.travel_planner import TravelData
 from app.domain.solutions.route_planner import RouteSolution
 from app.domain.solutions.shift_metrics import (
     assignment_metrics,
@@ -31,7 +32,7 @@ from app.domain.solutions.shift_metrics import (
 )
 from app.domain.solutions.shift_scheduler import ShiftSolution
 from app.domain.solutions.solution import CandidateSolution, ConstraintViolation
-
+from app.domain.solutions.travel_planner import TravelSolution
 
 def structural_verify(
     problem: OptimizationProblem, solution: CandidateSolution
@@ -42,7 +43,16 @@ def structural_verify(
         return verify_route_structure(problem.data, assignments), {}
     if isinstance(assignments, ShiftSolution) and isinstance(problem.data, ShiftData):
         return verify_shift_structure(problem.data, assignments)
+    if isinstance(assignments, NetworkDesignSolution) and isinstance(
+        problem.data, NetworkDesignData
+    ):
+        return verify_network_structure(problem.data, assignments), {}
+    if isinstance(assignments, TravelSolution) and isinstance(
+        problem.data, TravelData
+    ):  # (Phase 7-3)
+        return verify_travel_structure(problem.data, assignments), {}
     return [], {}
+
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +230,53 @@ def verify_network_structure(
             )
         )
     return out
+
+# ---------------------------------------------------------------------------
+# travel
+# ---------------------------------------------------------------------------
+
+
+def verify_travel_structure(data: TravelData, sol: TravelSolution) -> list[ConstraintViolation]:
+    """旅行プランの「形」を検証(純粋述語のみ)。
+
+    移動費用の再計算(Floyd-Warshall)は「計算」なので SolutionVerificationService が
+    `travel_common.tour_cost` で行う(network の全域木判定と同じ切り分け。`Phase-2-2.md` §3)。
+    ここは「選択が実在 / 順序が集合と一致 / 効用の和 / 予算・時間の宣言値が上限内」だけ。
+    """
+    out: list[ConstraintViolation] = []
+    place_by_id = {p.id: p for p in data.places}
+
+    unknown = [pid for pid in sol.selected_place_ids if pid not in place_by_id]
+    for pid in unknown:
+        out.append(_hard("travel_structure", f"unknown place {pid!r} in solution"))
+
+    if set(sol.visit_order) != set(sol.selected_place_ids):
+        out.append(
+            _hard("travel_structure", "visit_order is not a permutation of selected_place_ids")
+        )
+    if len(sol.visit_order) != len(set(sol.visit_order)):
+        out.append(_hard("travel_structure", "visit_order has duplicates"))
+
+    known_visit = [pid for pid in sol.visit_order if pid in place_by_id]
+    value = sum(place_by_id[pid].value * data.preferences.get(pid, 1.0) for pid in known_visit)
+    if abs(value - sol.total_value) > 1e-9:
+        out.append(
+            _hard("travel_structure", f"total_value {sol.total_value} != utility sum {value}")
+        )
+
+    if sol.total_cost > data.budget + 1e-9:
+        out.append(
+            _hard("travel_structure", f"total_cost {sol.total_cost} exceeds budget {data.budget}")
+        )
+    if sol.total_time > data.time_budget + 1e-9:
+        out.append(
+            _hard(
+                "travel_structure",
+                f"total_time {sol.total_time} exceeds time_budget {data.time_budget}",
+            )
+        )
+    return out
+
 
 # ---------------------------------------------------------------------------
 # 補助

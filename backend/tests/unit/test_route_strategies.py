@@ -92,11 +92,14 @@ def test_a_star_without_coords_equals_dijkstra() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 経由順最適化(4-4)
+# 経由順最適化(4-4)(7-4)
 # ---------------------------------------------------------------------------
 
 
 def test_optimize_waypoint_order_reorders_for_shorter_total() -> None:
+    """経由地の数 <= 8 の時
+    Phase7では_exact_best関数として定義し、結果が壊れていない事を確認
+    """
     # cost 表: 1D 直線 start=0, goal=10, 経由地 A=8, B=2。最適順は B, A
     positions = {"start": 0.0, "goal": 10.0, "A": 8.0, "B": 2.0}
 
@@ -117,14 +120,58 @@ def test_optimize_waypoint_order_returns_none_when_disconnected() -> None:
     assert optimize_waypoint_order("s", "g", ["w"], lambda _a, _b: None) is None
 
 
-def test_optimize_waypoint_order_keeps_given_order_when_too_many() -> None:
-    required = [f"w{i}" for i in range(9)]  # > _MAX_EXACT
+# Phase4段階での検証->Phase7-4でwaypoints.pyの変更に伴い失効
+# def test_optimize_waypoint_order_keeps_given_order_when_too_many() -> None:
+#     required = [f"w{i}" for i in range(9)]  # > _MAX_EXACT
 
-    # optimize_waypoint_orderの第四引数costは必ず1.0を返すが、
-    # len(required)>8のため、関数の実行前にreturnされる(順序変更なし)
-    # costの実引数は型ヒントを守っていればよい
+#     # optimize_waypoint_orderの第四引数costは必ず1.0を返す
+#     # len(required)>8のため、関数の実行前にreturnされる(順序変更なし)
+#     # costの実引数は型ヒントを守っていればよい
+#     order = optimize_waypoint_order("s", "g", required, lambda _a, _b: 1.0)
+#     assert order == ["s", *required, "g"] #これが想定されるbest_order
+
+def test_optimize_waypoint_order_approx_returns_none_when_disconnected() -> None:
+    """m > _MAX_EXACT で近似(_approx_best)に入っても、どの順でも繋がらないなら None。
+
+    _exact_best の None は全順列を試した確定判定、_approx_best の None は最近傍 + 2-opt が
+    組んだ最終 seq が繋がらなかったこと ── コードベースの cost(全点対距離由来)では
+    「別成分にまたがる」が両者共通のトリガーになり、結果は一致する。
+    """
+    required = [f"w{i}" for i in range(9)]  # > _MAX_EXACT
+    assert optimize_waypoint_order("s", "g", required, lambda _a, _b: None) is None
+
+
+def test_optimize_waypoint_order_approximates_when_too_many() -> None:
+    """m > _MAX_EXACT: 最近傍 + 2-opt の近似(Phase 7-4)。
+
+    Phase 4-6 まで: `assert order == ["s", *required, "g"]`(与えられた順のまま)。
+    Phase 7-4 から: 近似で並べ替える。厳密性は保証しないが「全経由地を訪れ、
+    与えられた順より悪くない」ことは満たす。
+    """
+    required = [f"w{i}" for i in range(9)]  # > _MAX_EXACT
     order = optimize_waypoint_order("s", "g", required, lambda _a, _b: 1.0)
-    assert order == ["s", *required, "g"] #これが想定されるbest_order
+    assert order is not None #到達不可能でなければNoneは返らない
+    assert set(order) == {"s", "g", *required}  # 全部訪れる
+    assert len(order) == len(set(order))  # 重複なし
+    assert order[0] == "s" and order[-1] == "g"
+
+
+
+def test_optimize_waypoint_order_approx_beats_given_order() -> None:
+    """非一様なコストなら、近似は「与えられた順」より短い経路を見つける。"""
+    # 1D 直線上に並べ、わざと交互(遠い→近い→遠い…)の順で渡す
+    positions = {"s": 0.0, "g": 100.0}
+    positions.update({f"w{i}": float(i * 5) for i in range(10)})  # w0=0 .. w9=45
+    given = ["w0", "w9", "w1", "w8", "w2", "w7", "w3", "w6", "w4"]  # > 8、ジグザグ
+
+    def cost(a: str, b: str) -> float:
+        return abs(positions[a] - positions[b])
+
+    approx = optimize_waypoint_order("s", "g", given, cost)
+    assert approx is not None
+    given_total = sum(cost(a, b) for a, b in zip(["s", *given, "g"], [*given, "g"], strict=False))
+    approx_total = sum(cost(a, b) for a, b in zip(approx, approx[1:], strict=False))
+    assert approx_total <= given_total
 
 
 def test_strategies_visit_all_required_regardless_of_input_order() -> None:

@@ -1,21 +1,14 @@
-"""forbidden 制約のチェッカー ── 解に「使ってはいけない要素」が含まれていないか。"""
+"""forbidden 制約のチェッカー ── 解に「使ってはいけない要素」が含まれていないか。
+  - route 解   … 使ったエッジ id
+  - network 解 … 選択したリンク id
+  - travel 解  … 訪れた place id
+"""
 
 from __future__ import annotations
 
 from app.domain.problems.problem import ForbiddenConstraint, OptimizationProblem
-from app.domain.solutions.network_design import NetworkDesignSolution
-from app.domain.solutions.route_planner import RouteSolution
 from app.domain.solutions.solution import CandidateSolution, ConstraintViolation
-
-
-def _used_element_ids(solution: CandidateSolution) -> set[str] | None:
-    """解が「使った要素」の id 集合。forbidden / required_inclusion が対象にできない解型は None。"""
-    assignments = solution.assignments
-    if isinstance(assignments, RouteSolution):
-        return set(assignments.path_edge_ids)
-    if isinstance(assignments, NetworkDesignSolution):
-        return set(assignments.selected_link_ids)
-    return None
+from app.domain.constraints.elements import solution_element_ids
 
 
 def check_forbidden(
@@ -24,7 +17,7 @@ def check_forbidden(
     solution: CandidateSolution,
 ) -> ConstraintViolation | None:
     """解が禁止要素(禁止エッジ id 等)を含んでいれば違反を1件返す。"""
-    used = _used_element_ids(solution)
+    used = solution_element_ids(solution, aspect="edges")
     if used is None:
         return None  # この解型には forbidden を適用しない(素通し)
     hit = used & set(constraint.items)

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app.domain.solutions.route_planner import RouteSolution
 from app.domain.solutions.shift_scheduler import ShiftSolution
 from app.domain.solutions.network_design import NetworkDesignSolution
+from app.domain.solutions.travel_planner import TravelSolution
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +49,7 @@ class AlgorithmMeta(BaseModel):
 # problem_type 判別子付きの判別可能ユニオン。
 # 新しい問題タイプはここに 1 項目足すだけ。
 type SolutionData = Annotated[
-    RouteSolution | ShiftSolution | NetworkDesignSolution , 
+    RouteSolution | ShiftSolution | NetworkDesignSolution | TravelSolution , 
     Field(discriminator="problem_type"),
 ]
 

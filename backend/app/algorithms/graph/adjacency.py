@@ -17,6 +17,7 @@ from collections.abc import Iterable
 
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.route_planner import RouteData
+from app.domain.problems.travel_planner import TravelData
 
 # 隣接リストの1エントリ: (隣接ノード id, そのエッジの id, 重み)
 type Adjacency = dict[str, list[tuple[str, str, float]]]
@@ -44,6 +45,21 @@ def build_link_adjacency(data: NetworkDesignData, forbidden_link_ids: set[str]) 
         a, b = link.endpoints
         adjacency.setdefault(a, []).append((b, link.id, link.weight))
         adjacency.setdefault(b, []).append((a, link.id, link.weight))
+    return adjacency
+
+def build_leg_adjacency(data: TravelData, forbidden_leg_ids: set[str]) -> Adjacency:
+    """TravelData から移動 cost の重み付き隣接リストを作る。leg は常に無向。
+
+    weight は `travel_cost`(費用)。時間で見たい呼び出し側は自分で作り直す。
+    Floyd-Warshall(`floyd_warshall.py`)がこれを受けて全点対距離を出す。
+    """
+    adjacency: Adjacency = {place.id: [] for place in data.places}
+    for leg in data.legs:
+        if leg.id in forbidden_leg_ids:
+            continue
+        a, b = leg.endpoints
+        adjacency.setdefault(a, []).append((b, leg.id, leg.travel_cost))
+        adjacency.setdefault(b, []).append((a, leg.id, leg.travel_cost))
     return adjacency
 
 

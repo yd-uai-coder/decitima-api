@@ -9,13 +9,15 @@
 from __future__ import annotations
 
 from app.algorithms.graph.connectivity import forms_spanning_tree
-
+from app.algorithms.optimization.travel_common import all_pairs, tour_cost
 from app.domain.constraints import CHECKERS
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.problem import OptimizationProblem
+from app.domain.problems.travel_planner import TravelData
 from app.domain.solutions.solution import CandidateSolution, ConstraintViolation
 from app.domain.solutions.network_design import NetworkDesignSolution
 from app.domain.solutions.structure import structural_verify
+from app.domain.solutions.travel_planner import TravelSolution
 
 class SolutionVerificationService:
     """候補解が problem のすべての制約を満たすか検証し、status と violations を確定する。"""
@@ -28,7 +30,11 @@ class SolutionVerificationService:
 
         # 1. 構造検証。解の型ごとに常に必要な検査 + 追加メトリクス(shift の labor_cost 等)
         structural, extra_metrics = structural_verify(problem, solution)
-        structural = [*structural, *_verify_spanning_tree(problem, solution)]
+        structural = [
+            *structural,
+            *_verify_spanning_tree(problem, solution),
+            *_verify_travel_plan(problem, solution), 
+            ]
         enriched = solution.model_copy(update={"metrics": {**solution.metrics, **extra_metrics}})
 
         # 2. 制約 kind ごとのチェッカー。enriched の metrics(構造検証後)を読む
@@ -79,6 +85,44 @@ def _verify_spanning_tree(
             message="selected links do not form a spanning tree (connect all nodes, no cycle)",
         )
     ]
+
+
+def _verify_travel_plan(
+    problem: OptimizationProblem, solution: CandidateSolution
+) -> list[ConstraintViolation]:
+    """travel_planning 解: 申告した total_cost / total_time が実際の巡回コストと合うか。
+
+    Floyd-Warshall で全点対距離を出し直し、solution.visit_order の順(再最適化しない)で
+    place + 移動のコストを積んで比べる。合わなければ strategy が嘘をついている(hard)。
+    """
+    if not (
+        isinstance(problem.data, TravelData) and isinstance(solution.assignments, TravelSolution)
+    ):
+        return []
+    cost_dist, time_dist = all_pairs(problem.data)
+    real_cost, real_time = tour_cost(
+        problem.data, solution.assignments.visit_order, cost_dist, time_dist
+    )
+    out: list[ConstraintViolation] = []
+    if abs(real_cost - solution.assignments.total_cost) > 1e-6:
+        out.append(
+            ConstraintViolation(
+                constraint_kind="travel_structure",
+                severity="hard",
+                message=f"claimed total_cost {solution.assignments.total_cost} "
+                f"!= recomputed {real_cost}",
+            )
+        )
+    if abs(real_time - solution.assignments.total_time) > 1e-6:
+        out.append(
+            ConstraintViolation(
+                constraint_kind="travel_structure",
+                severity="hard",
+                message=f"claimed total_time {solution.assignments.total_time} "
+                f"!= recomputed {real_time}",
+            )
+        )
+    return out
 
 
 def _soft_penalty(problem: OptimizationProblem, violations: list[ConstraintViolation]) -> float:

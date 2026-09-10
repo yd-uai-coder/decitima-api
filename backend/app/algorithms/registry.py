@@ -5,6 +5,9 @@ from app.algorithms.base import AlgorithmStrategy
 from app.domain.problems.problem import OptimizationProblem
 from app.algorithms.graph.dijkstra import DijkstraStrategy
 from app.algorithms.optimization.brute_force import BruteForceRouteStrategy
+from app.algorithms.optimization.knapsack import KnapsackDpTravelStrategy
+from app.algorithms.optimization.greedy_travel import GreedyTravelStrategy
+from app.algorithms.optimization.brute_force_travel import BruteForceTravelStrategy
 from app.algorithms.graph.bellman_ford import BellmanFordStrategy
 from app.algorithms.graph.a_star import AStarStrategy
 from app.algorithms.graph.networkx_shortest import NetworkxShortestPath   # ← この章で有効化
@@ -40,6 +43,11 @@ REGISTRY: dict[str, list[AlgorithmStrategy]] = {
         PrimStrategy(),
         NetworkxMST(),
     ],
+    "travel_planning": [ 
+        KnapsackDpTravelStrategy(),
+        GreedyTravelStrategy(),
+        BruteForceTravelStrategy(),
+],
 }
 
 
