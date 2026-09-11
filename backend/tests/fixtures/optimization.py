@@ -2,6 +2,22 @@
 
 decitima-api の pyproject は pythonpath=["."] なので `from tests.fixtures.optimization import ...`
 で import できる。Phase 2 で shift の解ビルダーと infeasible な shift 問題を追加。
+
+(route):
+  - build_scaled_route_problem に `density`(横エッジの本数を振れる。既定は Phase 3 と同じ挙動)
+  - build_negative_route_problem … 有向 + 負辺(Bellman-Ford 用。無向だと負辺は即・負閉路)
+  - build_negative_cycle_route_problem … 有向の負閉路
+  - build_coord_route_problem … 座標つき(A* のヒューリスティック用)
+(network):
+  - build_network_problem / build_network_solution … network_design(MST)
+  - build_disconnected_network_problem … 孤立ノードあり(infeasible 用)
+(travel):
+  - build_travel_problem / build_travel_solution … travel_planning(Knapsack DP)
+  - build_scaled_travel_problem … place 数を振れる(規模別の analysis 用)
+(project):
+  - build_project_problem / build_project_solution … project_scheduling(CPM / RCPSP)
+  - build_scaled_project_problem … タスク数を振れる(ランダム DAG)
+  - build_cyclic_project_problem … 依存が閉路(validation の infeasible 用)
 """
 
 from __future__ import annotations
@@ -35,6 +51,8 @@ from app.domain.solutions.solution import (
 from app.domain.solutions.network_design import NetworkDesignSolution
 from app.domain.solutions.travel_planner import TravelSolution
 from app.domain.problems.travel_planner import Place, TravelData, TravelLeg
+from app.domain.problems.project_manager import ProjectData, ProjectTask, TaskDependency
+from app.domain.solutions.project_manager import ProjectSolution, ScheduledTask
 
 
 # Phase 0-2 §7.1 の例題:
@@ -541,4 +559,132 @@ def build_travel_solution(
             total_time=total_time,
         ),
         produced_by=AlgorithmMeta(name="manual", family="optimization", implementation="fixture"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# project_scheduling(CPM / RCPSP)
+# ---------------------------------------------------------------------------
+
+# 5 タスクの例題。資源無視の CPM: makespan 8、クリティカルパス A -> C -> E、B / D は slack 3。
+#   resource_capacity=3 のとき A(res 2)と B(res 1)は t0-2 で共存できるが、C(res 3)は
+#   その 4 単位だけで全容量を占め、D(res 1)は C と重なれない。
+#     cpm(資源無視)      : makespan 8、ただし C と D が重なり peak 4 > 3 → Verification が invalid
+#     priority_list       : 資源 feasible。D を後ろに回して makespan 10(最適ではない)
+#     cp_sat              : 資源 feasible な最適 ── makespan 9
+_PROJECT_TASKS = [
+    ProjectTask(id="A", name="設計", duration=3, resource=2),
+    ProjectTask(id="B", name="調達", duration=2, resource=1),
+    ProjectTask(id="C", name="実装", duration=4, resource=3),
+    ProjectTask(id="D", name="検証", duration=2, resource=1),
+    ProjectTask(id="E", name="リリース", duration=1, resource=2),
+]
+_PROJECT_DEPS = [
+    TaskDependency(id="dep_ac", predecessor="A", successor="C"),
+    TaskDependency(id="dep_bd", predecessor="B", successor="D"),
+    TaskDependency(id="dep_ce", predecessor="C", successor="E"),
+    TaskDependency(id="dep_de", predecessor="D", successor="E"),
+]
+
+
+def build_project_problem(
+    *,
+    resource_capacity: int | None = 3,
+    max_makespan: float | None = None,
+    forbidden: list[str] | None = None,
+) -> OptimizationProblem:
+    """例題の Project Manager。CPM / priority_list / CP-SAT / cpm_nx をかける。
+
+    resource_capacity=None にすると純粋 CPM(資源制約なし)。
+    """
+    constraints: list = []
+    if forbidden:
+        constraints.append(ForbiddenConstraint(severity="hard", items=forbidden))
+    if max_makespan is not None:
+        constraints.append(
+            NumericBoundConstraint(
+                severity="hard", field="makespan", operator="<=", value=max_makespan
+            )
+        )
+    objectives = [Objective(sense="minimize", target="makespan", weight=1.0)]
+    if resource_capacity is not None:
+        objectives.append(Objective(sense="minimize", target="peak_resource", weight=0.1))
+    return OptimizationProblem(
+        problem_type="project_scheduling",
+        objectives=objectives,
+        constraints=constraints,
+        data=ProjectData(
+            tasks=list(_PROJECT_TASKS),
+            dependencies=list(_PROJECT_DEPS),
+            resource_capacity=resource_capacity,
+        ),
+    )
+
+
+def build_cyclic_project_problem() -> OptimizationProblem:
+    """依存が閉路(A -> B -> C -> A)── ProblemValidationService が InfeasibleProblemError。"""
+    return OptimizationProblem(
+        problem_type="project_scheduling",
+        objectives=[Objective(sense="minimize", target="makespan")],
+        data=ProjectData(
+            tasks=[ProjectTask(id=t, duration=1) for t in ("A", "B", "C")],
+            dependencies=[
+                TaskDependency(id="d1", predecessor="A", successor="B"),
+                TaskDependency(id="d2", predecessor="B", successor="C"),
+                TaskDependency(id="d3", predecessor="C", successor="A"),
+            ],
+        ),
+    )
+
+
+def build_scaled_project_problem(
+    n_tasks: int, *, seed: int = 0, resource_capacity: int | None = None
+) -> OptimizationProblem:
+    """ランダムな DAG(規模別の比較・プロパティテスト用)。
+
+    タスク T0..T(n-1)。依存は i < j の向きにだけ張る(必ず非巡回)。
+    `build_scaled_route_problem` と同型 ── seed 固定で RNG 呼び出し順を固定し決定論に。
+    """
+    if n_tasks < 1:
+        raise ValueError(f"n_tasks must be >= 1, got {n_tasks}")
+    rng = random.Random(seed)
+    tasks = [
+        ProjectTask(id=f"T{i}", duration=rng.randint(1, 5), resource=rng.randint(0, 3))
+        for i in range(n_tasks)
+    ]
+    deps: list[TaskDependency] = []
+    for j in range(1, n_tasks):
+        k = min(rng.randint(1, 2), j)
+        for p in rng.sample(range(j), k):
+            deps.append(TaskDependency(id=f"d{p}_{j}", predecessor=f"T{p}", successor=f"T{j}"))
+    return OptimizationProblem(
+        problem_type="project_scheduling",
+        objectives=[Objective(sense="minimize", target="makespan")],
+        data=ProjectData(tasks=tasks, dependencies=deps, resource_capacity=resource_capacity),
+    )
+
+
+def build_project_solution(
+    schedule: list[tuple[str, float, float, float]],
+    *,
+    critical_path: list[str] | None = None,
+    makespan: float | None = None,
+    task_order: list[str] | None = None,
+    status: SolutionStatus = "valid",
+) -> CandidateSolution:
+    """手組みの ProjectSolution を包む。schedule = (task_id, start, finish, slack) のリスト。"""
+    tasks = [ScheduledTask(task_id=t, start=s, finish=f, slack=sl) for t, s, f, sl in schedule]
+    return CandidateSolution(
+        status=status,
+        assignments=ProjectSolution(
+            task_order=task_order or [t for t, *_ in schedule],
+            schedule=tasks,
+            critical_path=critical_path or [],
+            makespan=(
+                makespan
+                if makespan is not None
+                else max((f for _, _, f, _ in schedule), default=0.0)
+            ),
+        ),
+        produced_by=AlgorithmMeta(name="manual", family="scheduling", implementation="fixture"),
     )

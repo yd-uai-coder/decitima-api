@@ -10,6 +10,7 @@ from app.domain.problems.route_planner import RouteData
 from app.domain.problems.shift_scheduler import ShiftData
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.travel_planner import TravelData
+from app.domain.problems.project_manager import ProjectData 
 
 @dataclass(frozen=True)
 class SemanticIssue:
@@ -202,6 +203,37 @@ def check_travel_time_feasible(problem: OptimizationProblem) -> list[SemanticIss
     return []
 
 
+# ---------------------------------------------------------------------------
+# project_manager
+# ---------------------------------------------------------------------------
+
+
+def check_project_has_tasks(problem: OptimizationProblem) -> list[SemanticIssue]:
+    """タスクが空 ── スケジュールする対象が無い(整合性の欠陥)。"""
+    if not isinstance(problem.data, ProjectData):
+        return []
+    if not problem.data.tasks:
+        return [SemanticIssue("project_scheduling has no tasks")]
+    return []
+
+
+def check_project_resource_capacity(problem: OptimizationProblem) -> list[SemanticIssue]:
+    """resource_capacity が指定され、それを 1 タスクの需要が超えるなら、そのタスクは永遠に
+    実行できない(infeasible)。shift の weekly-hours-cover / travel の budget-feasible と同型。
+    """
+    if not isinstance(problem.data, ProjectData):
+        return []
+    cap = problem.data.resource_capacity
+    if cap is None:
+        return []
+    too_big = [t.id for t in problem.data.tasks if t.resource > cap]
+    if too_big:
+        return [
+            SemanticIssue(
+                f"task(s) {too_big} demand more resource than capacity {cap}", infeasible=True
+            )
+        ]
+    return []
 
 
 # ---------------------------------------------------------------------------
@@ -227,5 +259,9 @@ SEMANTIC_CHECKS: dict[str, list[SemanticCheck]] = {
         check_travel_place_refs,
         check_travel_budget_feasible,
         check_travel_time_feasible,
+    ],
+    "project_scheduling": [
+        check_project_has_tasks,
+        check_project_resource_capacity,
     ],
 }

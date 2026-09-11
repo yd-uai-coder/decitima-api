@@ -3,6 +3,7 @@
 from app.algorithms.base import AlgorithmStrategy
 from app.domain.problems.problem import OptimizationProblem
 from app.algorithms.registry import find_strategy, get_strategies
+from app.domain.problems.project_manager import ProjectData
 from app.domain.problems.route_planner import RouteData
 from app.domain.problems.shift_scheduler import ShiftData
 from app.services.errors import NoAlgorithmError
@@ -24,6 +25,13 @@ def _preferred_name(problem: OptimizationProblem) -> str | None:
     if isinstance(data, ShiftData):
         # 既定は Backtracking(小規模で最適)。実規模は ?algorithm=cp_sat を明示 request
         return "backtracking"
+    if problem.problem_type == "travel_planning":
+        # 既定は Knapsack DP。小規模の厳密確認は ?algorithm=brute_force
+        return "knapsack_dp"
+    if isinstance(data, ProjectData):
+        # 資源制約あり → priority_list(資源 feasible な貪欲)。厳密は ?algorithm=cp_sat
+        # 資源制約なし → cpm(純粋なクリティカルパス。O(V+E))
+        return "priority_list" if data.resource_capacity is not None else "cpm"
     return None
 
 

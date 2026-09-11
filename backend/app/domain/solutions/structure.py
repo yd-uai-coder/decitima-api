@@ -2,7 +2,13 @@
 
 - verify_route_structure … 経路が連結 / 始終点 / total_weight 整合(すべて hard)
 - verify_shift_structure … 割当が実在 id / 可用性 / 必要スキル / 週勤務時間 / 連続勤務日数(hard)、
-  希望休(soft)、labor_cost・day_off_satisfaction(metrics)
+  希望休(soft)。metrics(labor_cost・day_off_satisfaction・hour_variance)は `shift_metrics.py` を
+  呼ぶだけ ── 探索(algorithms/scheduling)と同じコードなので数値がズレない(Phase 6-1)
+- verify_network_structure … 選択リンクが実在 / 全域木の辺数 / total_weight 整合(Phase 5-3)
+- verify_travel_structure … 選択 place が実在 / visit_order が選択の順列 / total_* 整合 /
+  予算・時間を hard で超えない(Phase 7-3)
+- verify_project_structure … task_order が全タスクの順列 / finish == start + duration /
+  依存を守る(succ.start >= pred.finish)/ critical_path は slack 0 / makespan 整合(Phase 8-3)
 
 このモジュールは葉(route_planner.py / shift_scheduler.py)とアグリゲータ(solution.py)を
 import するが、それらはこのモジュールを import しない(一方向)。
@@ -19,11 +25,13 @@ from itertools import pairwise
 
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.problem import OptimizationProblem
+from app.domain.problems.project_manager import ProjectData
 from app.domain.problems.route_planner import RouteData
 from app.domain.problems.shift_scheduler import ShiftData
 from app.domain.solutions.network_design import NetworkDesignSolution
 from app.domain.problems.travel_planner import TravelData
 from app.domain.solutions.route_planner import RouteSolution
+from app.domain.solutions.project_manager import ProjectSolution
 from app.domain.solutions.shift_metrics import (
     assignment_metrics,
     distinct,
@@ -33,6 +41,7 @@ from app.domain.solutions.shift_metrics import (
 from app.domain.solutions.shift_scheduler import ShiftSolution
 from app.domain.solutions.solution import CandidateSolution, ConstraintViolation
 from app.domain.solutions.travel_planner import TravelSolution
+
 
 def structural_verify(
     problem: OptimizationProblem, solution: CandidateSolution
@@ -49,8 +58,12 @@ def structural_verify(
         return verify_network_structure(problem.data, assignments), {}
     if isinstance(assignments, TravelSolution) and isinstance(
         problem.data, TravelData
-    ):  # (Phase 7-3)
+    ):  
         return verify_travel_structure(problem.data, assignments), {}
+    if isinstance(assignments, ProjectSolution) and isinstance(
+        problem.data, ProjectData
+    ):  
+        return verify_project_structure(problem.data, assignments), {}
     return [], {}
 
 
@@ -275,6 +288,73 @@ def verify_travel_structure(data: TravelData, sol: TravelSolution) -> list[Const
                 f"total_time {sol.total_time} exceeds time_budget {data.time_budget}",
             )
         )
+    return out
+
+
+# ---------------------------------------------------------------------------
+# project
+# ---------------------------------------------------------------------------
+
+
+def verify_project_structure(data: ProjectData, sol: ProjectSolution) -> list[ConstraintViolation]:
+    """スケジュールの「形」を検証(純粋述語のみ)。すべて hard。
+
+    資源プロファイルの再計算(imos)は「計算」なので SolutionVerificationService が
+    `project_common.resource_profile` で行う(travel の tour_cost 検算と同じ切り分け)。
+    ここは「順列 / 所要時間 / 依存 / クリティカルパス / makespan」の整合だけ。
+    """
+    out: list[ConstraintViolation] = []
+    task_ids = {t.id for t in data.tasks}
+    dur = {t.id: t.duration for t in data.tasks}
+    sched = {s.task_id: s for s in sol.schedule}
+
+    if set(sol.task_order) != task_ids or len(sol.task_order) != len(task_ids):
+        out.append(_hard("project_structure", "task_order is not a permutation of all tasks"))
+    if set(sched) != task_ids or len(sol.schedule) != len(task_ids):
+        out.append(_hard("project_structure", "schedule does not cover every task exactly once"))
+
+    for s in sol.schedule:
+        d = dur.get(s.task_id)
+        if d is not None and abs(s.finish - (s.start + d)) > 1e-9:
+            out.append(
+                _hard(
+                    "project_structure",
+                    f"task {s.task_id!r}: finish {s.finish} != start {s.start} + duration {d}",
+                )
+            )
+
+    # 依存: successor は predecessor が終わってから始まる(finish-to-start)
+    for dep in data.dependencies:
+        p, q = sched.get(dep.predecessor), sched.get(dep.successor)
+        if p is not None and q is not None and q.start < p.finish - 1e-9:
+            out.append(
+                _hard(
+                    "project_structure",
+                    f"dependency {dep.id!r}: {dep.successor!r} starts at {q.start} "
+                    f"before {dep.predecessor!r} finishes at {p.finish}",
+                )
+            )
+
+    # クリティカルパスのタスクは余裕ゼロ
+    for tid in sol.critical_path:
+        s = sched.get(tid)
+        if s is not None and abs(s.slack) > 1e-9:
+            out.append(
+                _hard(
+                    "project_structure",
+                    f"critical_path task {tid!r} has non-zero slack {s.slack}",
+                )
+            )
+
+    if sol.schedule:
+        real_makespan = max(s.finish for s in sol.schedule)
+        if abs(real_makespan - sol.makespan) > 1e-9:
+            out.append(
+                _hard(
+                    "project_structure",
+                    f"makespan {sol.makespan} != max finish {real_makespan}",
+                )
+            )
     return out
 
 

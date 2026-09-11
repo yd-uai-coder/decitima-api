@@ -10,14 +10,18 @@ from app.algorithms.optimization.greedy_travel import GreedyTravelStrategy
 from app.algorithms.optimization.brute_force_travel import BruteForceTravelStrategy
 from app.algorithms.graph.bellman_ford import BellmanFordStrategy
 from app.algorithms.graph.a_star import AStarStrategy
-from app.algorithms.graph.networkx_shortest import NetworkxShortestPath   # ← この章で有効化
+from app.algorithms.graph.networkx_shortest import NetworkxShortestPath 
 from app.algorithms.graph.kruskal import KruskalStrategy
 from app.algorithms.graph.prim import PrimStrategy
 from app.algorithms.graph.networkx_mst import NetworkxMST
 from app.algorithms.scheduling.greedy import GreedyShiftStrategy
-from app.algorithms.scheduling.backtracking import BacktrackingShiftStrategy   # ← 有効化
+from app.algorithms.scheduling.backtracking import BacktrackingShiftStrategy
 from app.algorithms.scheduling.branch_and_bound import BranchAndBoundShiftStrategy
 from app.algorithms.scheduling.ortools_cpsat import OrToolsCpSatShiftStrategy
+from app.algorithms.scheduling.priority_list import PriorityListScheduleStrategy
+from app.algorithms.scheduling.ortools_project import OrToolsCpSatProjectStrategy
+from app.algorithms.scheduling.networkx_project import NetworkxCpmStrategy
+from app.algorithms.scheduling.cpm import CpmScheduleStrategy
 
 
 REGISTRY: dict[str, list[AlgorithmStrategy]] = {
@@ -47,7 +51,13 @@ REGISTRY: dict[str, list[AlgorithmStrategy]] = {
         KnapsackDpTravelStrategy(),
         GreedyTravelStrategy(),
         BruteForceTravelStrategy(),
-],
+    ],
+    "project_scheduling": [  # (Phase 8-6)
+        CpmScheduleStrategy(),
+        PriorityListScheduleStrategy(),
+        OrToolsCpSatProjectStrategy(),
+        NetworkxCpmStrategy(),
+    ],
 }
 
 

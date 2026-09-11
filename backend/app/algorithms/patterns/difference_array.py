@@ -16,21 +16,30 @@ from collections.abc import Iterable
 
 
 def range_add(size: int, updates: Iterable[tuple[int, int, float]]) -> list[float]:
-    """updates の各 (l, r, delta) を「[l, r) に +delta」として適用し、長さ size の配列を返す。
+    """imos 法: diff[l] += delta / diff[r] -= delta を記録 → 累積和で復元。
+    size:最終的に作る配列の長さ
+    updates:
+        left:開始インデックス
+        right:終了インデックス
+        delta:加算値
+    diff:
 
-    imos 法: diff[l] += delta / diff[r] -= delta を記録 → 累積和で復元。
     範囲外や l >= r の update は無視する。
+    updates の各 (l, r, delta) を「[l, r) に +delta」として適用し、長さ size の配列を返す。
     """
-    diff = [0.0] * (size + 1)
+
+    diff = [0.0] * (size + 1) #引数のleft,rightとdiffのインデックス番号を合わせたいからsize + 1
     for left, right, delta in updates:
-        left = max(left, 0)
-        right = min(right, size)
-        if left >= right:
+        left = max(left, 0)         # 加算位置の左端は0以上
+        right = min(right, size)    # 加算位置の右端はsize以下
+        if left >= right:           # 論理チェック
             continue
-        diff[left] += delta
-        diff[right] -= delta
+        diff[left] += delta         # 加算開始
+        diff[right] -= delta        # 元に戻す
     out: list[float] = []
     running = 0.0
+
+    # return用配列を作る
     for i in range(size):
         running += diff[i]
         out.append(running)

@@ -17,12 +17,13 @@ from __future__ import annotations
 from app.algorithms.graph.adjacency import build_link_adjacency
 from app.algorithms.graph.connectivity import all_nodes_connected
 from app.algorithms.graph.reachability import route_reachable
+from app.algorithms.graph.topological import has_cycle, successors_from_edges
 from app.domain.problems.problem import ForbiddenConstraint, OptimizationProblem
 from app.domain.problems.route_planner import RouteData
 from app.domain.problems.network_design import NetworkDesignData
+from app.domain.problems.project_manager import ProjectData   
 from app.domain.problems.semantic import SEMANTIC_CHECKS
 from app.services.errors import InfeasibleProblemError, ProblemValidationError
-
 
 class ProblemValidationService:
     """OptimizationProblem がアルゴリズムに渡せる状態か、問題全体を見て検査する。"""
@@ -70,6 +71,14 @@ class ProblemValidationService:
                 infeasible.append(
                     f"candidate links (minus {len(forbidden)} forbidden) cannot connect all nodes"
                 )
+        # project: 依存グラフが DAG か ── 閉路があるとトポロジカル順が存在しない
+        elif isinstance(problem.data, ProjectData):
+            successors = successors_from_edges(
+                (t.id for t in problem.data.tasks),
+                ((d.predecessor, d.successor) for d in problem.data.dependencies),
+            )
+            if has_cycle(successors):
+                infeasible.append("dependency graph has a cycle: no topological order exists")
 
         if infeasible:
             raise InfeasibleProblemError("; ".join(infeasible))

@@ -10,14 +10,18 @@ from __future__ import annotations
 
 from app.algorithms.graph.connectivity import forms_spanning_tree
 from app.algorithms.optimization.travel_common import all_pairs, tour_cost
+from app.algorithms.scheduling.project_common import peak_resource, resource_profile 
 from app.domain.constraints import CHECKERS
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.problem import OptimizationProblem
+from app.domain.problems.project_manager import ProjectData
 from app.domain.problems.travel_planner import TravelData
 from app.domain.solutions.solution import CandidateSolution, ConstraintViolation
 from app.domain.solutions.network_design import NetworkDesignSolution
+from app.domain.solutions.project_manager import ProjectSolution
 from app.domain.solutions.structure import structural_verify
 from app.domain.solutions.travel_planner import TravelSolution
+
 
 class SolutionVerificationService:
     """候補解が problem のすべての制約を満たすか検証し、status と violations を確定する。"""
@@ -34,6 +38,7 @@ class SolutionVerificationService:
             *structural,
             *_verify_spanning_tree(problem, solution),
             *_verify_travel_plan(problem, solution), 
+            *_verify_project_resources(problem, solution), 
             ]
         enriched = solution.model_copy(update={"metrics": {**solution.metrics, **extra_metrics}})
 
@@ -123,6 +128,34 @@ def _verify_travel_plan(
             )
         )
     return out
+
+def _verify_project_resources(
+    problem: OptimizationProblem, solution: CandidateSolution
+) -> list[ConstraintViolation]:
+    """project_scheduling 解: スケジュールの資源使用量が resource_capacity を超えないか。
+
+    schedule の [start, finish) を imos で積み直してピークを取る。cpm strategy は資源を
+    無視して ES に詰めるので、capacity がきついとここで invalid になる(Phase 8 の教材の核)。
+    priority_list / cp_sat は資源を守るので超えない。
+    """
+    if not (
+        isinstance(problem.data, ProjectData) and isinstance(solution.assignments, ProjectSolution)
+    ):
+        return []
+    cap = problem.data.resource_capacity
+    if cap is None:
+        return []
+    demands = {t.id: t.resource for t in problem.data.tasks}
+    peak = peak_resource(resource_profile(solution.assignments.schedule, demands))
+    if peak <= cap:
+        return []
+    return [
+        ConstraintViolation(
+            constraint_kind="project_resource",
+            severity="hard",
+            message=f"peak resource usage {peak} exceeds capacity {cap}",
+        )
+    ]
 
 
 def _soft_penalty(problem: OptimizationProblem, violations: list[ConstraintViolation]) -> float:
