@@ -10,8 +10,15 @@ from app.core.config import settings
 from app.core.database import Base
 
 # noqa: F401 — モデルをmetadataに登録するためだけに必要なimport
-from app.models import  User, Conversation, Message, Problem, Solution,BenchmarkRun  # noqa: F401
-
+from app.models import (  # noqa: F401
+    BenchmarkRun,
+    Conversation,
+    Job,
+    Message,
+    Problem,
+    Solution,
+    User,
+)
 
 # alembic.iniの設定値にアクセスするためのConfigオブジェクト
 config = context.config
