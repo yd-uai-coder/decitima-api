@@ -7,6 +7,10 @@
   レジストリを回すだけ。
 - 例外: route の「到達可能性」だけは graph アルゴリズム(app/algorithms/)を使うため、
   domain → algorithms の逆流を避けてここに置く。
+    - route の到達可能性        route_reachable
+    - network の全拠点連結性     all_nodes_connected
+    - project の依存 DAG が非巡回か has_cycle
+    - logistics のデポ→全配送先の到達可能性 logistics_deliveries_reachable
 
 整合性の欠陥 → ProblemValidationError(400)。原理的に解が無い → InfeasibleProblemError(400)。
 原則: 「明らかに無理」だけを弾き、グレーゾーンは通す)。
@@ -16,12 +20,13 @@ from __future__ import annotations
 
 from app.algorithms.graph.adjacency import build_link_adjacency
 from app.algorithms.graph.connectivity import all_nodes_connected
-from app.algorithms.graph.reachability import route_reachable
+from app.algorithms.graph.reachability import route_reachable, logistics_deliveries_reachable
 from app.algorithms.graph.topological import has_cycle, successors_from_edges
 from app.domain.problems.problem import ForbiddenConstraint, OptimizationProblem
 from app.domain.problems.route_planner import RouteData
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.project_manager import ProjectData   
+from app.domain.problems.logistics import LogisticsData
 from app.domain.problems.semantic import SEMANTIC_CHECKS
 from app.services.errors import InfeasibleProblemError, ProblemValidationError
 
@@ -79,6 +84,15 @@ class ProblemValidationService:
             )
             if has_cycle(successors):
                 infeasible.append("dependency graph has a cycle: no topological order exists")
+        # logistics: デポから全配送先ノードへ道路網で到達できるか
+        elif isinstance(problem.data, LogisticsData) and not logistics_deliveries_reachable(
+            problem.data, forbidden
+        ):
+            infeasible.append(
+                f"not all deliveries are reachable from depot {problem.data.depot_id!r} "
+                f"after removing {len(forbidden)} forbidden segment(s)"
+            )
+
 
         if infeasible:
             raise InfeasibleProblemError("; ".join(infeasible))

@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     BENCHMARK_RATE_LIMIT_PER_HOUR: int = 10
     BENCHMARK_RATE_LIMIT_PER_DAY: int = 50
 
+    # Job（ジョブキュー投入のレート制限。単位時間あたりの上限回数。Phase 9-8）
+    JOB_SUBMIT_RATE_LIMIT_PER_HOUR: int = 20
+    JOB_SUBMIT_RATE_LIMIT_PER_DAY: int = 100
+
+    # Simulate（シナリオ一括実行のレート制限。solve/job より重いので別枠。Phase 10-4）
+    SIMULATE_SUBMIT_RATE_LIMIT_PER_HOUR: int = 10
+    SIMULATE_SUBMIT_RATE_LIMIT_PER_DAY: int = 50
+
 
 @lru_cache
 def get_settings() -> Settings:

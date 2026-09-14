@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-app}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-app}"]
       interval: 5s
@@ -46,6 +47,24 @@ services:
       ]
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  worker:
+    build:
+      context: ./backend
+      target: builder
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+      - backend_venv:/app/.venv
+    command: ["uv", "run", "arq", "app.worker.WorkerSettings"]
     depends_on:
       postgres:
         condition: service_healthy

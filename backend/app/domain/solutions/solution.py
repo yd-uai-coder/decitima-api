@@ -14,7 +14,7 @@ from app.domain.solutions.shift_scheduler import ShiftSolution
 from app.domain.solutions.network_design import NetworkDesignSolution
 from app.domain.solutions.travel_planner import TravelSolution
 from app.domain.solutions.project_manager import ProjectSolution
-
+from app.domain.solutions.logistics import LogisticsSolution
 
 # ---------------------------------------------------------------------------
 # 解候補（CandidateSolution）
@@ -50,7 +50,12 @@ class AlgorithmMeta(BaseModel):
 # problem_type 判別子付きの判別可能ユニオン。
 # 新しい問題タイプはここに 1 項目足すだけ。
 type SolutionData = Annotated[
-    RouteSolution | ShiftSolution | NetworkDesignSolution | TravelSolution | ProjectSolution,
+    RouteSolution 
+    | ShiftSolution 
+    | NetworkDesignSolution 
+    | TravelSolution 
+    | ProjectSolution
+    | LogisticsSolution,
     Field(discriminator="problem_type"),
 ]
 

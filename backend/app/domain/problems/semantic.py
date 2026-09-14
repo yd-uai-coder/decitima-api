@@ -11,6 +11,7 @@ from app.domain.problems.shift_scheduler import ShiftData
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.travel_planner import TravelData
 from app.domain.problems.project_manager import ProjectData 
+from app.domain.problems.logistics import LogisticsData
 
 @dataclass(frozen=True)
 class SemanticIssue:
@@ -237,6 +238,71 @@ def check_project_resource_capacity(problem: OptimizationProblem) -> list[Semant
 
 
 # ---------------------------------------------------------------------------
+# logistics_planning
+# ---------------------------------------------------------------------------
+
+def check_logistics_vehicles_exist(problem: OptimizationProblem) -> list[SemanticIssue]:
+    """配送先があるのに車両が1台も無ければ、誰も配送できない(infeasible)。"""
+    if not isinstance(problem.data, LogisticsData):
+        return []
+    if problem.data.deliveries and not problem.data.vehicles:
+        return [SemanticIssue("logistics_planning has deliveries but no vehicles", infeasible=True)]
+    return []
+
+
+def check_logistics_capacity_feasible(problem: OptimizationProblem) -> list[SemanticIssue]:
+    """1件の配送先の需要が、どの車両の容量にも収まらないなら、その配送先は永遠に運べない
+    (infeasible)。project の resource_capacity / travel の budget_feasible と同型。
+    """
+    data = problem.data
+    if not isinstance(data, LogisticsData) or not data.vehicles:
+        return []
+    max_weight = max(v.capacity_weight for v in data.vehicles)
+    max_volume = max(v.capacity_volume for v in data.vehicles)
+    too_big = [
+        d.id
+        for d in data.deliveries
+        if d.demand_weight > max_weight or d.demand_volume > max_volume
+    ]
+    if too_big:
+        return [
+            SemanticIssue(
+                f"delivery(ies) {too_big} exceed every vehicle's capacity "
+                f"(max weight={max_weight}, max volume={max_volume})",
+                infeasible=True,
+            )
+        ]
+    return []
+
+
+def check_logistics_fleet_capacity_covers_demand(
+    problem: OptimizationProblem,
+) -> list[SemanticIssue]:
+    """全車両の容量合計が全配送先の需要合計を下回るなら、原理的に積みきれない(infeasible)。
+
+    必要条件であって十分条件ではない(容量が足りても地理的な組合せで詰められないことは
+    あり得る ── それは「計算」なので strategy の solve に委ねる。ここは明らかな無理だけを弾く)。
+    """
+    data = problem.data
+    if not isinstance(data, LogisticsData):
+        return []
+    total_weight_demand = sum(d.demand_weight for d in data.deliveries)
+    total_volume_demand = sum(d.demand_volume for d in data.deliveries)
+    total_weight_capacity = sum(v.capacity_weight for v in data.vehicles)
+    total_volume_capacity = sum(v.capacity_volume for v in data.vehicles)
+    if total_weight_demand > total_weight_capacity or total_volume_demand > total_volume_capacity:
+        return [
+            SemanticIssue(
+                f"total demand (weight={total_weight_demand}, volume={total_volume_demand}) "
+                f"exceeds total fleet capacity "
+                f"(weight={total_weight_capacity}, volume={total_volume_capacity})",
+                infeasible=True,
+            )
+        ]
+    return []
+
+
+# ---------------------------------------------------------------------------
 # レジストリ ── problem_type ごとの検査リスト。新しい problem_type はここに 1 エントリ足す
 # ---------------------------------------------------------------------------
 
@@ -263,5 +329,10 @@ SEMANTIC_CHECKS: dict[str, list[SemanticCheck]] = {
     "project_scheduling": [
         check_project_has_tasks,
         check_project_resource_capacity,
+    ],
+    "logistics_planning": [
+        check_logistics_vehicles_exist,
+        check_logistics_capacity_feasible,
+        check_logistics_fleet_capacity_covers_demand,
     ],
 }

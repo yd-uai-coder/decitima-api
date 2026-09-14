@@ -71,3 +71,31 @@ def load_solutions(path: str | Path) -> pd.DataFrame:
     if not df.empty:
         df["created_at"] = pd.to_datetime(df["created_at"])
     return df
+
+
+def load_jobs(path: str | Path) -> pd.DataFrame:
+    """jobs テーブル(solve/simulate 共用、Phase 9-8/10-4)の JSONL を「1 ジョブ 1 行」の
+    DataFrame にする。列: job_id / created_at / problem_type / status / request / result / error。
+
+    `request`/`result` はジョブ種別(solve か simulate か)で形が違うため、ここでは生の dict
+    のまま列に保持し、種別ごとの整形は呼び出し側(`analysis/simulation_analysis.py` 等)に委ねる
+    (`load_benchmark_runs` / `load_solutions` が entries/metrics まで正規化するのとの違い)。
+    """
+    rows: list[dict] = []
+    for rec in _read_jsonl(path):
+        payload = _payload(rec)
+        rows.append(
+            {
+                "job_id": rec["id"],
+                "created_at": rec["created_at"],
+                "problem_type": rec["problem_type"],
+                "status": rec["status"],
+                "request": payload.get("request"),
+                "result": payload.get("result"),
+                "error": payload.get("error"),
+            }
+        )
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df["created_at"] = pd.to_datetime(df["created_at"])
+    return df

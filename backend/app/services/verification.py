@@ -11,16 +11,26 @@ from __future__ import annotations
 from app.algorithms.graph.connectivity import forms_spanning_tree
 from app.algorithms.optimization.travel_common import all_pairs, tour_cost
 from app.algorithms.scheduling.project_common import peak_resource, resource_profile 
+from app.algorithms.optimization.logistics_common import (
+    all_pairs as logistics_all_pairs,
+)
+from app.algorithms.optimization.logistics_common import (
+    capacity_ok,
+    parse_logistics_problem,
+    route_distance,
+)
 from app.domain.constraints import CHECKERS
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.problem import OptimizationProblem
 from app.domain.problems.project_manager import ProjectData
 from app.domain.problems.travel_planner import TravelData
+from app.domain.problems.logistics import LogisticsData  # (Phase 9-2)
 from app.domain.solutions.solution import CandidateSolution, ConstraintViolation
 from app.domain.solutions.network_design import NetworkDesignSolution
 from app.domain.solutions.project_manager import ProjectSolution
 from app.domain.solutions.structure import structural_verify
 from app.domain.solutions.travel_planner import TravelSolution
+from app.domain.solutions.logistics import LogisticsSolution  # (Phase 9-2)
 
 
 class SolutionVerificationService:
@@ -39,6 +49,7 @@ class SolutionVerificationService:
             *_verify_spanning_tree(problem, solution),
             *_verify_travel_plan(problem, solution), 
             *_verify_project_resources(problem, solution), 
+            *_verify_logistics_routes(problem, solution),
             ]
         enriched = solution.model_copy(update={"metrics": {**solution.metrics, **extra_metrics}})
 
@@ -156,6 +167,51 @@ def _verify_project_resources(
             message=f"peak resource usage {peak} exceeds capacity {cap}",
         )
     ]
+
+def _verify_logistics_routes(
+    problem: OptimizationProblem, solution: CandidateSolution
+) -> list[ConstraintViolation]:
+    """logistics_planning 解: 各車両の容量を超えていないか / 申告した distance が実際の
+    巡回距離(与えられた訪問順を検算)と合うか。
+
+    Floyd-Warshall で全点対距離を出し直し、solution の各 route.stop_ids の順(再最適化しない)
+    で距離を積んで比べる。合わなければ strategy が嘘をついている(hard)。
+    """
+    if not (
+        isinstance(problem.data, LogisticsData)
+        and isinstance(solution.assignments, LogisticsSolution)
+    ):
+        return []
+    data, forbidden = parse_logistics_problem(problem)
+    dist = logistics_all_pairs(data, forbidden)
+    by_id = {s.id: s for s in data.deliveries}
+    vehicle_by_id = {v.id: v for v in data.vehicles}
+
+    out: list[ConstraintViolation] = []
+    for route in solution.assignments.routes:
+        vehicle = vehicle_by_id.get(route.vehicle_id)
+        stops = [by_id[sid] for sid in route.stop_ids if sid in by_id]
+        if vehicle is not None and not capacity_ok(vehicle, stops):
+            out.append(
+                ConstraintViolation(
+                    constraint_kind="logistics_capacity",
+                    severity="hard",
+                    message=f"vehicle {route.vehicle_id!r} exceeds its capacity",
+                )
+            )
+        # stop_ids は配送先 id の列 ── 実距離の検算は道路網のノード id で行うので変換する
+        node_order = [by_id[sid].node_id for sid in route.stop_ids if sid in by_id]
+        real_distance = route_distance(data.depot_id, node_order, dist)
+        if abs(real_distance - route.distance) > 1e-6:
+            out.append(
+                ConstraintViolation(
+                    constraint_kind="logistics_structure",
+                    severity="hard",
+                    message=f"vehicle {route.vehicle_id!r}: claimed distance {route.distance} "
+                    f"!= recomputed {real_distance}",
+                )
+            )
+    return out
 
 
 def _soft_penalty(problem: OptimizationProblem, violations: list[ConstraintViolation]) -> float:

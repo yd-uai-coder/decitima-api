@@ -32,6 +32,10 @@ def _preferred_name(problem: OptimizationProblem) -> str | None:
         # 資源制約あり → priority_list(資源 feasible な貪欲)。厳密は ?algorithm=cp_sat
         # 資源制約なし → cpm(純粋なクリティカルパス。O(V+E))
         return "priority_list" if data.resource_capacity is not None else "cpm"
+    if problem.problem_type == "logistics_planning":  # (Phase 9-7)
+        # 既定は Knapsack DP(高速)。厳密確認は ?algorithm=brute_force、
+        # 台数最小化は ?algorithm=pulp_milp を明示 request
+        return "knapsack_dp"
     return None
 
 

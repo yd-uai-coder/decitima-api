@@ -1,20 +1,18 @@
 """グラフの隣接表現(プリミティブ)。
 
 - `build_adjacency` … RouteData(有向/無向混在)→ 重み付き隣接リスト
-- `build_link_adjacency` … NetworkDesignData(常に無向)→ 重み付き隣接リスト(5-3)
-- `plain_adjacency` … 重み付き隣接 → id だけの素の隣接(BFS / 連結性判定が使う)
+- `build_link_adjacency` … NetworkDesignData(常に無向)→ 重み付き隣接リスト
+- `build_leg_adjacency` … TravelData(常に無向)→ 移動 cost の隣接リスト
+- `build_logistics_adjacency` … LogisticsData(有向/無向混在)→ 重み付き隣接リスト
 - `has_negative_weight` … 負辺が1本でもあるか(Dijkstra / A* の前提チェック)
-
-CSR 行列ビルダー(`to_csr`)は入れない ── scipy を足す Phase まで遅延
-(`textbook/appendix/library-fork-impact.md` フック①)。
-Phase 5-3 で `network_design` 用の `build_link_adjacency` をこのファイルに足す
-(link 専用の無向隣接。route 消費者がいないので Phase 5 まで遅延)。
+- `plain_adjacency` … 重み付き隣接 → id だけの素の隣接(BFS / 連結性判定が使う)
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 
+from app.domain.problems.logistics import LogisticsData
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.route_planner import RouteData
 from app.domain.problems.travel_planner import TravelData
@@ -60,6 +58,22 @@ def build_leg_adjacency(data: TravelData, forbidden_leg_ids: set[str]) -> Adjace
         a, b = leg.endpoints
         adjacency.setdefault(a, []).append((b, leg.id, leg.travel_cost))
         adjacency.setdefault(b, []).append((a, leg.id, leg.travel_cost))
+    return adjacency
+
+
+def build_logistics_adjacency(data: LogisticsData, forbidden_segment_ids: set[str]) -> Adjacency:
+    """LogisticsData から重み付き隣接リストを作る。`build_adjacency`(RouteData)と同型 ──
+
+    `segment.directed` が False の区間は逆向きも張る(無向扱い)。Floyd-Warshall(7-1)が
+    これを受けてデポ・配送先間の全点対距離を出す(`logistics_common.all_pairs`、9-2)。
+    """
+    adjacency: Adjacency = {node.id: [] for node in data.nodes}
+    for seg in data.segments:
+        if seg.id in forbidden_segment_ids:
+            continue
+        adjacency.setdefault(seg.source, []).append((seg.target, seg.id, seg.distance))
+        if not seg.directed:
+            adjacency.setdefault(seg.target, []).append((seg.source, seg.id, seg.distance))
     return adjacency
 
 

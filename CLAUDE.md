@@ -95,6 +95,7 @@ routes → services ─┬→ domain (app/domain)     ※ 純粋。問題・制�
 
 - `backend/tests/conftest.py`は、`app.core.database`などをimportする**前**に`os.environ.setdefault(...)`でテスト用の`DATABASE_URL`等を設定している。**なぜこの順序が重要か**：Pythonのimportは一度実行されると以後はキャッシュされるため、先に本物の設定を使うモジュールがimportされてしまうと、後から環境変数を上書きしても手遅れになる。この順序を誤ると、テストが誤って開発/本番用のDBに接続してしまう事故につながる。
 - ユニットテストはインメモリSQLite（`db_session`フィクスチャ）、統合テスト（`tests/integration/`）は実際のPostgreSQL/Redis（`docker compose up postgres redis`で起動）を使う。統合テストは`@pytest.mark.integration`でマークされ、デフォルトでは実行されない（`pyproject.toml`の`addopts = "-m 'not integration'"`）。
+- **危険：`docker compose run backend ...`経由で統合テストを実行する場合、`env_file: .env`により実データベース（`app`）の`DATABASE_URL`がそのままコンテナに注入される**。`tests/conftest.py`の`os.environ.setdefault("DATABASE_URL", ...)`は既に値が入っているため発動しない。統合テストのフィクスチャ（`tests/integration/conftest.py::client` / `tests/integration/test_jobs_e2e.py::pg_session`）はテスト終了時に`Base.metadata.drop_all()`を実行するため、上書きを忘れると実データベースの全テーブルが消える（2026-09-14に実際に発生）。`tests/integration/conftest.py::ensure_test_database()`が`DATABASE_URL`に`test`を含まない場合は実行前に`RuntimeError`で止める安全装置になっているが、必ず`-e DATABASE_URL=...`でテスト専用データベース（`app_test`）を明示的に指定すること（詳細は`README.md`「テスト実行方法」）。
 
 ## Docker構成
 

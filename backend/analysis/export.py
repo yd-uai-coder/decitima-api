@@ -22,10 +22,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from analysis.db import session_scope
 from app.core.database import Base
 from app.models.optimization import BenchmarkRun, Solution
+from app.models.job import Job
 
 _TABLES: dict[str, type[Base]] = {
     "benchmark_runs": BenchmarkRun,
     "solutions": Solution,
+    "jobs": Job,
 }
 
 

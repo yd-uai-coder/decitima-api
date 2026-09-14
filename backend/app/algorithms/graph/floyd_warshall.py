@@ -38,13 +38,13 @@ def floyd_warshall(adjacency: Adjacency) -> AllPairs:
 
     # k を経由してよいことにすると i→j が縮むか、を全 k について
     for k in nodes:
-        dk = dist[k] # kから各ノードへの距離
-        for i in nodes: # 各ノード(出発ノード)単位で操作
-            dik = dist[i][k] # ノードiからノードkへの距離
+        dk = dist[k]            # kから各ノードへの距離
+        for i in nodes:         # 各ノード(出発ノード)単位で操作
+            dik = dist[i][k]    # ノードiからノードkへの距離
             if dik == math.inf:
-                continue  # i から k に行けないなら k 経由は無意味
-            di = dist[i] # iから各ノードへの距離
-            for j in nodes: # 各ノード(最終ノード)単位で操作
+                continue        # i から k に行けないなら k 経由は無意味
+            di = dist[i]        # iから各ノードへの距離
+            for j in nodes:     # 各ノード(最終ノード)単位で操作
                 through_k = dik + dk[j]
                 if through_k < di[j]: # kを経由した方が距離が近いなら
                     di[j] = through_k # i-jの距離を更新する

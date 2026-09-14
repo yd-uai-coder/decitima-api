@@ -150,6 +150,16 @@ uv run pytest --cov=app --cov-report=term-missing   # カバレッジ付き
 
 結合テスト (`tests/integration/`) はFastAPI → 実PostgreSQL → 実Redisを実際に使用するため、`docker compose up postgres redis` などで両方を起動した状態で実行してください。Gemini/TavilyはUnit Testでは全てMockに置き換えています（`tests/unit/test_ai_graph_nodes.py`）。
 
+**`docker compose run` 経由で実行する場合は `DATABASE_URL` を明示的にテスト専用データベース（`app_test`）へ上書きすること。** `env_file: .env` により `backend` サービスには実データベース（`app`）の `DATABASE_URL` がそのまま注入されるため、上書きを忘れると結合テストのフィクスチャが `Base.metadata.drop_all()` で実データベースの全テーブルを消去してしまう（2026-09-14 に実際に発生した事故）。`tests/integration/conftest.py::ensure_test_database()` が `DATABASE_URL` に `test` が含まれない場合は実行前に止める安全装置になっているが、念のため常に明示的に上書きすること:
+
+```bash
+docker compose run --rm --no-deps \
+  -e DATABASE_URL="$(grep '^DATABASE_URL=' .env | cut -d= -f2- | sed 's#/app$#/app_test#')" \
+  backend uv run pytest -m integration
+```
+
+`app_test` データベースは `postgres-init/01-create-test-db.sql` により新規環境では自動作成される（既存の `postgres_data` ボリュームでは自動実行されないため、既存環境では初回のみ `docker compose exec postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -c "CREATE DATABASE app_test OWNER $POSTGRES_USER;"` を手動実行する）。
+
 ## Ruff実行方法
 
 ```bash

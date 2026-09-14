@@ -45,14 +45,15 @@ def knapsack_2d(items: list[Item], cap_a: int, cap_b: int) -> list[int]:
 
     for idx, (wa, wb, value) in enumerate(items):
         # a, b を降順に見る ── 同じアイテムを二重に取らない(0/1 の要)
-        for a in range(cap_a, wa - 1, -1):      # cap_aから wa-1まで 降順でたどる。
-            for b in range(cap_b, wb - 1, -1):  # cap_bから wb-1まで 降順でたどる。
+        for a in range(cap_a, wa - 1, -1):                  # cap_aから wa-1まで 降順でたどる。
+            for b in range(cap_b, wb - 1, -1):              # cap_bから wb-1まで 降順でたどる。
+
                 # dp[a - wa][b - wb] -> Aの残り容量:a - wa、Bの残り容量:bの時の価値(初期値0.0で1回のみ参照する)
-                cand = dp[a - wa][b - wb] + value # アイテムを使う場合の価値
+                cand = dp[a - wa][b - wb] + value           # アイテムを使う場合の価値
 
                 # dp[a][b]はAの容量がa以下でBの容量がb以下にしたときの最大価値(最適解)
-                if cand > dp[a][b]: # dp[a][b]:最大価値(暫定)よりアイテムを使う時の価値が高ければ更新
-                    dp[a][b] = cand # 最大価値を更新
+                if cand > dp[a][b]:                         # dp[a][b]:最大価値(暫定)よりアイテムを使う時の価値が高ければ更新
+                    dp[a][b] = cand                         # 最大価値を更新
                     take[a][b] = list(take[a - wa][b - wb]) #アイテムを追加前に同じ残り容量でのbool配列をコピーする
                     take[a][b][idx] = True                  #コピーした配列のアイテムの欄に該当アイテムを追加した旨登録
 

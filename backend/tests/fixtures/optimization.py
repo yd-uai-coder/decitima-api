@@ -18,7 +18,12 @@ decitima-api の pyproject は pythonpath=["."] なので `from tests.fixtures.o
   - build_project_problem / build_project_solution … project_scheduling(CPM / RCPSP)
   - build_scaled_project_problem … タスク数を振れる(ランダム DAG)
   - build_cyclic_project_problem … 依存が閉路(validation の infeasible 用)
+(logistics):
+  - build_logistics_problem / build_logistics_solution … logistics_planning(CVRP)
+  - build_scaled_logistics_problem … 配送先数を振れる(規模別の比較・プロパティテスト用)
+  - build_disconnected_logistics_problem … 配送先がデポと非連結(validation の infeasible 用)
 """
+
 
 from __future__ import annotations
 
@@ -39,6 +44,13 @@ from app.domain.problems.problem import (
     RequiredInclusionConstraint,
     StaffingConstraint,
 )
+from app.domain.problems.logistics import (
+    DeliveryStop,
+    LogisticsData,
+    LogisticsNode,
+    RoadSegment,
+    Vehicle,
+)
 from app.domain.problems.route_planner import RouteData, RouteEdge, RouteNode
 from app.domain.problems.shift_scheduler import ShiftData, ShiftSlot, Staff
 from app.domain.solutions.shift_scheduler import ShiftSolution
@@ -53,6 +65,7 @@ from app.domain.solutions.travel_planner import TravelSolution
 from app.domain.problems.travel_planner import Place, TravelData, TravelLeg
 from app.domain.problems.project_manager import ProjectData, ProjectTask, TaskDependency
 from app.domain.solutions.project_manager import ProjectSolution, ScheduledTask
+from app.domain.solutions.logistics import LogisticsSolution, VehicleRoute
 
 
 # Phase 0-2 §7.1 の例題:
@@ -687,4 +700,158 @@ def build_project_solution(
             ),
         ),
         produced_by=AlgorithmMeta(name="manual", family="scheduling", implementation="fixture"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# logistics_planning(CVRP)
+# ---------------------------------------------------------------------------
+
+# デポ D + 3 配送先。D-N1=4, D-N2=3, D-N3=6, N1-N2=2, N2-N3=3(全区間無向)。
+# 全点対最短距離(Floyd-Warshall): D-N1=4, D-N2=3, D-N3=6, N1-N2=2, N1-N3=5, N2-N3=3。
+# 容量 10 に対し demand は P1=4, P2=5, P3=7 ── P1+P2=9 は収まるが、P1+P3=11 / P2+P3=12 は
+# 超える。2 台に分けると必ず {P1,P2}(距離 D-N1-N2-D=9)+ {P3}(距離 D-N3-D=12)= 21 になる
+# (これ以外の分け方は容量オーバーで作れない)。5 strategy が一致して 21 を出すはずの最小例。
+_LOGISTICS_NODES = [
+    LogisticsNode(id="D"),
+    LogisticsNode(id="N1"),
+    LogisticsNode(id="N2"),
+    LogisticsNode(id="N3"),
+]
+_LOGISTICS_SEGMENTS = [
+    RoadSegment(id="S_D1", source="D", target="N1", distance=4),
+    RoadSegment(id="S_D2", source="D", target="N2", distance=3),
+    RoadSegment(id="S_D3", source="D", target="N3", distance=6),
+    RoadSegment(id="S_12", source="N1", target="N2", distance=2),
+    RoadSegment(id="S_23", source="N2", target="N3", distance=3),
+]
+_LOGISTICS_VEHICLES = [
+    Vehicle(id="V1", capacity_weight=10, capacity_volume=10),
+    Vehicle(id="V2", capacity_weight=10, capacity_volume=10),
+]
+_LOGISTICS_DELIVERIES = [
+    DeliveryStop(id="P1", node_id="N1", demand_weight=4, demand_volume=4),
+    DeliveryStop(id="P2", node_id="N2", demand_weight=5, demand_volume=5),
+    DeliveryStop(id="P3", node_id="N3", demand_weight=7, demand_volume=7),
+]
+
+
+def build_logistics_problem(
+    *,
+    vehicles: list[Vehicle] | None = None,
+    deliveries: list[DeliveryStop] | None = None,
+    forbidden: list[str] | None = None,
+) -> OptimizationProblem:
+    """例題の Logistics Optimizer。knapsack_dp / greedy / branch_and_bound / brute_force /
+    pulp_milp をかける(容量の都合で総距離 21・使用台数 2 に一致するはず)。
+    """
+    constraints: list = []
+    if forbidden:
+        constraints.append(ForbiddenConstraint(severity="hard", items=forbidden))
+    return OptimizationProblem(
+        problem_type="logistics_planning",
+        objectives=[Objective(sense="minimize", target="total_distance")],
+        constraints=constraints,
+        data=LogisticsData(
+            depot_id="D",
+            nodes=list(_LOGISTICS_NODES),
+            segments=list(_LOGISTICS_SEGMENTS),
+            vehicles=list(vehicles) if vehicles is not None else list(_LOGISTICS_VEHICLES),
+            deliveries=list(deliveries) if deliveries is not None else list(_LOGISTICS_DELIVERIES),
+        ),
+    )
+
+
+def build_disconnected_logistics_problem() -> OptimizationProblem:
+    """配送先の1つ(P2 at N2)がデポと道路で繋がっていない
+    (ProblemValidationService が InfeasibleProblemError)。
+    """
+    return OptimizationProblem(
+        problem_type="logistics_planning",
+        objectives=[Objective(sense="minimize", target="total_distance")],
+        data=LogisticsData(
+            depot_id="D",
+            nodes=[LogisticsNode(id="D"), LogisticsNode(id="N1"), LogisticsNode(id="N2")],
+            segments=[RoadSegment(id="S_D1", source="D", target="N1", distance=5)],
+            vehicles=[Vehicle(id="V1", capacity_weight=10, capacity_volume=10)],
+            deliveries=[
+                DeliveryStop(id="P1", node_id="N1", demand_weight=2, demand_volume=2),
+                DeliveryStop(id="P2", node_id="N2", demand_weight=2, demand_volume=2),  # 孤立
+            ],
+        ),
+    )
+
+
+def build_scaled_logistics_problem(
+    n_deliveries: int, *, seed: int = 0, n_vehicles: int | None = None
+) -> OptimizationProblem:
+    """配送先数を振れるランダム CVRP(規模別の比較・プロパティテスト用)。
+
+    ノードはデポ D を起点に一直線(N1..Nn)+ seed で数本の近道。各ノードに配送先 1 件。
+    容量(重量・体積とも 10)に対し demand は 1〜3 に抑えるので、車両を余裕をもって
+    (n_deliveries+1)//2 台用意すれば容量面では詰まらない。`build_scaled_project_problem` と
+    同型 ── seed 固定で RNG 呼び出し順を固定し決定論を保つ。
+    """
+    if n_deliveries < 1:
+        raise ValueError(f"n_deliveries must be >= 1, got {n_deliveries}")
+    rng = random.Random(seed)
+    nodes = [
+        LogisticsNode(id="D"),
+        *(LogisticsNode(id=f"N{i}") for i in range(1, n_deliveries + 1)),
+    ]
+    segments = [
+        RoadSegment(
+            id=f"S{i}",
+            source="D" if i == 0 else f"N{i}",
+            target=f"N{i + 1}",
+            distance=rng.randint(1, 5),
+        )
+        for i in range(n_deliveries)
+    ]
+    for k in range(max(n_deliveries // 4, 1)):
+        a, b = sorted(rng.sample(range(n_deliveries + 1), 2))
+        src = "D" if a == 0 else f"N{a}"
+        dst = "D" if b == 0 else f"N{b}"
+        segments.append(
+            RoadSegment(id=f"SC{k}", source=src, target=dst, distance=rng.randint(2, 8))
+        )
+    deliveries = [
+        DeliveryStop(
+            id=f"P{i}",
+            node_id=f"N{i}",
+            demand_weight=rng.randint(1, 3),
+            demand_volume=rng.randint(1, 3),
+        )
+        for i in range(1, n_deliveries + 1)
+    ]
+    fleet_size = n_vehicles or max(2, (n_deliveries + 1) // 2)
+    vehicles = [
+        Vehicle(id=f"V{i}", capacity_weight=10, capacity_volume=10) for i in range(fleet_size)
+    ]
+    return OptimizationProblem(
+        problem_type="logistics_planning",
+        objectives=[Objective(sense="minimize", target="total_distance")],
+        data=LogisticsData(
+            depot_id="D", nodes=nodes, segments=segments, vehicles=vehicles, deliveries=deliveries
+        ),
+    )
+
+
+def build_logistics_solution(
+    routes: list[tuple[str, list[str], float]],
+    *,
+    total_distance: float | None = None,
+    status: SolutionStatus = "valid",
+) -> CandidateSolution:
+    """手組みの LogisticsSolution を包む。routes = (vehicle_id, stop_ids, distance) のリスト。"""
+    vehicle_routes = [VehicleRoute(vehicle_id=v, stop_ids=s, distance=d) for v, s, d in routes]
+    return CandidateSolution(
+        status=status,
+        assignments=LogisticsSolution(
+            routes=vehicle_routes,
+            total_distance=(
+                total_distance if total_distance is not None else sum(d for _, _, d in routes)
+            ),
+        ),
+        produced_by=AlgorithmMeta(name="manual", family="optimization", implementation="fixture"),
     )

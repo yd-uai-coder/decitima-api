@@ -23,7 +23,9 @@ dependencies = [
     "tavily-python>=0.7.27",
     "uvicorn[standard]>=0.52.1",
     "numpy>=2.0",
-    "ortools", 
+    "ortools",
+    "pulp>=3.3.2",
+    "arq>=0.28.0",
 ]
 
 [tool.uv]

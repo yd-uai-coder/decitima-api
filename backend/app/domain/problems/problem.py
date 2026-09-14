@@ -27,6 +27,7 @@ from app.domain.problems.shift_scheduler import ShiftData
 from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.travel_planner import TravelData
 from app.domain.problems.project_manager import ProjectData
+from app.domain.problems.logistics import LogisticsData
 
 # ---------------------------------------------------------------------------
 # 目的(Objective)
@@ -122,13 +123,26 @@ type AnyConstraint = Annotated[
 
 ##ユニオンの合成
 type ProblemData = Annotated[
-    RouteData | ShiftData | NetworkDesignData | TravelData | ProjectData, Field(discriminator="problem_type")
+    RouteData
+    | ShiftData 
+    | NetworkDesignData 
+    | TravelData 
+    | ProjectData
+    | LogisticsData,
+    Field(discriminator="problem_type")
 ]
 
 class OptimizationProblem(BaseModel):
     """LLM と Algorithm Engine の共通言語。目的・制約・問題固有データを束ねる。"""
 
-    problem_type: Literal["route_planning", "shift_scheduling", "network_design", "travel_planning", "project_scheduling"]
+    problem_type: Literal[
+        "route_planning", 
+        "shift_scheduling", 
+        "network_design", 
+        "travel_planning", 
+        "project_scheduling",
+        "logistics_planning",
+        ]
     objectives: list[Objective]
     constraints: list[AnyConstraint] = Field(default_factory=list)
     data: ProblemData

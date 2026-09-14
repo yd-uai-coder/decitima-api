@@ -13,6 +13,7 @@ from app.domain.solutions.solution import (
     SolutionStatus,
 )
 from app.domain.solutions.travel_planner import TravelSolution
+from app.domain.solutions.logistics import LogisticsSolution, VehicleRoute
 
 __all__ = [
     "AlgorithmFamily",
@@ -27,4 +28,6 @@ __all__ = [
     "SolutionData",
     "SolutionStatus",
     "TravelSolution",
+    "VehicleRoute",
+    "LogisticsSolution",
 ]

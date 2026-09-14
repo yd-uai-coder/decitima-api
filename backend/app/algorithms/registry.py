@@ -2,26 +2,37 @@
 from __future__ import annotations
 
 from app.algorithms.base import AlgorithmStrategy
-from app.domain.problems.problem import OptimizationProblem
-from app.algorithms.graph.dijkstra import DijkstraStrategy
-from app.algorithms.optimization.brute_force import BruteForceRouteStrategy
-from app.algorithms.optimization.knapsack import KnapsackDpTravelStrategy
-from app.algorithms.optimization.greedy_travel import GreedyTravelStrategy
-from app.algorithms.optimization.brute_force_travel import BruteForceTravelStrategy
-from app.algorithms.graph.bellman_ford import BellmanFordStrategy
 from app.algorithms.graph.a_star import AStarStrategy
-from app.algorithms.graph.networkx_shortest import NetworkxShortestPath 
+from app.algorithms.graph.bellman_ford import BellmanFordStrategy
+from app.algorithms.graph.dijkstra import DijkstraStrategy
 from app.algorithms.graph.kruskal import KruskalStrategy
-from app.algorithms.graph.prim import PrimStrategy
 from app.algorithms.graph.networkx_mst import NetworkxMST
-from app.algorithms.scheduling.greedy import GreedyShiftStrategy
+from app.algorithms.graph.networkx_shortest import NetworkxShortestPath
+from app.algorithms.graph.prim import PrimStrategy
+from app.algorithms.optimization.branch_and_bound_logistics import ( 
+    BranchAndBoundLogisticsStrategy,
+)
+from app.algorithms.optimization.brute_force import BruteForceRouteStrategy
+from app.algorithms.optimization.brute_force_logistics import (
+    BruteForceLogisticsStrategy,
+)
+from app.algorithms.optimization.brute_force_travel import BruteForceTravelStrategy 
+from app.algorithms.optimization.greedy_logistics import GreedyLogisticsStrategy 
+from app.algorithms.optimization.greedy_travel import GreedyTravelStrategy 
+from app.algorithms.optimization.knapsack import KnapsackDpTravelStrategy 
+from app.algorithms.optimization.knapsack_dp_logistics import ( 
+    KnapsackDpLogisticsStrategy,
+)
+from app.algorithms.optimization.pulp_logistics import PulpMilpLogisticsStrategy 
 from app.algorithms.scheduling.backtracking import BacktrackingShiftStrategy
 from app.algorithms.scheduling.branch_and_bound import BranchAndBoundShiftStrategy
+from app.algorithms.scheduling.cpm import CpmScheduleStrategy 
+from app.algorithms.scheduling.greedy import GreedyShiftStrategy
+from app.algorithms.scheduling.networkx_project import NetworkxCpmStrategy 
 from app.algorithms.scheduling.ortools_cpsat import OrToolsCpSatShiftStrategy
-from app.algorithms.scheduling.priority_list import PriorityListScheduleStrategy
-from app.algorithms.scheduling.ortools_project import OrToolsCpSatProjectStrategy
-from app.algorithms.scheduling.networkx_project import NetworkxCpmStrategy
-from app.algorithms.scheduling.cpm import CpmScheduleStrategy
+from app.algorithms.scheduling.ortools_project import OrToolsCpSatProjectStrategy 
+from app.algorithms.scheduling.priority_list import PriorityListScheduleStrategy 
+from app.domain.problems.problem import OptimizationProblem
 
 
 REGISTRY: dict[str, list[AlgorithmStrategy]] = {
@@ -52,11 +63,18 @@ REGISTRY: dict[str, list[AlgorithmStrategy]] = {
         GreedyTravelStrategy(),
         BruteForceTravelStrategy(),
     ],
-    "project_scheduling": [  # (Phase 8-6)
+    "project_scheduling": [ 
         CpmScheduleStrategy(),
         PriorityListScheduleStrategy(),
         OrToolsCpSatProjectStrategy(),
         NetworkxCpmStrategy(),
+    ],
+    "logistics_planning": [ 
+        KnapsackDpLogisticsStrategy(),
+        GreedyLogisticsStrategy(),
+        BranchAndBoundLogisticsStrategy(),
+        BruteForceLogisticsStrategy(),
+        PulpMilpLogisticsStrategy(),
     ],
 }
 

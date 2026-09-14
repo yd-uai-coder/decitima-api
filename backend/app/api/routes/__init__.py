@@ -7,6 +7,8 @@ from app.api.routes.algorithms import router as algorithms_router
 from app.api.routes.solutions import router as solutions_router
 from app.api.routes.verify import router as verify_router
 from app.api.routes.benchmark import router as benchmark_router
+from app.api.routes.jobs import router as jobs_router
+from app.api.routes.simulate import router as simulate_router
 
 # 各機能別ルーターを1つのAPIRouterに集約し、main.pyから一括でincludeできるようにする。
 # chat_router（app/api/routes/chat.py）はDeciTimaではPhase 10まで無効化している。
@@ -19,3 +21,5 @@ api_router.include_router(algorithms_router)
 api_router.include_router(solutions_router)
 api_router.include_router(verify_router)
 api_router.include_router(benchmark_router) 
+api_router.include_router(jobs_router)
+api_router.include_router(simulate_router)
