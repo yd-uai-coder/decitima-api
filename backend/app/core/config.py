@@ -37,7 +37,11 @@ class Settings(BaseSettings):
     # AI
     GOOGLE_API_KEY: str | None = None
     TAVILY_API_KEY: str | None = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
+
+    # Structuring API のレート制限（単位時間あたりの上限回数）
+    STRUCTURE_RATE_LIMIT_PER_HOUR: int = 20
+    STRUCTURE_RATE_LIMIT_PER_DAY: int = 100
 
     # Rate limit（チャットメッセージ送信のレート制限。単位時間あたりの上限回数）
     CHAT_RATE_LIMIT_PER_HOUR: int = 20

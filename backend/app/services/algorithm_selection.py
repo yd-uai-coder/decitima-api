@@ -1,12 +1,22 @@
 """アルゴリズム選択(サービス層)。"""
 
+import math
+
 from app.algorithms.base import AlgorithmStrategy
-from app.domain.problems.problem import OptimizationProblem
 from app.algorithms.registry import find_strategy, get_strategies
+from app.domain.problems.problem import OptimizationProblem
 from app.domain.problems.project_manager import ProjectData
 from app.domain.problems.route_planner import RouteData
 from app.domain.problems.shift_scheduler import ShiftData
+from app.domain.problems.travel_planner import TravelData
 from app.services.errors import NoAlgorithmError
+
+# knapsack_dp は O(places数 × floor(budget) × floor(time_budget)) の擬多項式。
+# 実測(cap_a=15000,cap_b=16,n=5→0.74秒 / cap_a=100000,cap_b=16,n=5→5.23秒)から、
+# /benchmark の runs=3 逐次実行でも SOLVE_TIMEOUT_SECONDS(10秒)に収まる規模に制限する。
+# 超える場合は解の質を多少落としてでも確実に完走する greedy にフォールバックする。
+# (暫定閾値。Phase 15 の性能テストで見直す可能性あり)
+_MAX_KNAPSACK_DP_CELLS = 2_000_000
 
 def _preferred_name(problem: OptimizationProblem) -> str | None:
     """問題特性から使いたい meta.name を決める。候補に無ければ呼び出し側が先頭にフォールバック。"""
@@ -25,8 +35,13 @@ def _preferred_name(problem: OptimizationProblem) -> str | None:
     if isinstance(data, ShiftData):
         # 既定は Backtracking(小規模で最適)。実規模は ?algorithm=cp_sat を明示 request
         return "backtracking"
-    if problem.problem_type == "travel_planning":
-        # 既定は Knapsack DP。小規模の厳密確認は ?algorithm=brute_force
+    if problem.problem_type == "travel_planning" and isinstance(data, TravelData):
+        # 既定は Knapsack DP。ただし budget/time_budget が大きく DP グリッドが
+        # 肥大化する場合はタイムアウト連鎖(裏スレッドは止まらない)を避けるため greedy に
+        # フォールバックする。厳密な確認は ?algorithm=knapsack_dp / brute_force を明示 request
+        cells = len(data.places) * math.floor(data.budget) * math.floor(data.time_budget)
+        if cells > _MAX_KNAPSACK_DP_CELLS:
+            return "greedy"
         return "knapsack_dp"
     if isinstance(data, ProjectData):
         # 資源制約あり → priority_list(資源 feasible な貪欲)。厳密は ?algorithm=cp_sat
