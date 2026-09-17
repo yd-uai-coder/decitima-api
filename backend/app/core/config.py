@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     RECOMMEND_RATE_LIMIT_PER_HOUR: int = 20
     RECOMMEND_RATE_LIMIT_PER_DAY: int = 100
 
+    #  Result Explanation のレート制限（単位時間あたりの上限回数）
+    EXPLAIN_RATE_LIMIT_PER_HOUR: int = 20
+    EXPLAIN_RATE_LIMIT_PER_DAY: int = 100
+    
 @lru_cache
 def get_settings() -> Settings:
     """Settingsインスタンスを生成する。lru_cacheによりプロセス内では1回だけ生成される。"""

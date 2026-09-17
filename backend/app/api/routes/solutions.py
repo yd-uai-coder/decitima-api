@@ -8,9 +8,11 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUserDep, SessionDep
+from app.api.deps import CurrentUserDep, SessionDep, RedisDep
 from app.schemas.optimization import ProblemRead, SolutionRead
 from app.services.optimization_read import OptimizationReadService
+from app.schemas.explanation import ExplanationResponse
+from app.services.explanation import SolutionExplanationService
 
 router = APIRouter(tags=["solutions"])
 
@@ -42,3 +44,18 @@ async def list_problem_solutions(
         problem_id, user_id=current_user.id
     )
     return [SolutionRead.model_validate(r) for r in rows]
+
+
+@router.post("/solutions/{solution_id}/explain", response_model=ExplanationResponse)
+async def explain_solution(
+    solution_id: uuid.UUID, session: SessionDep, current_user: CurrentUserDep, redis: RedisDep
+) -> ExplanationResponse:
+    """保存済みの解を自然言語で説明する(LLM、補助機能。永続化しない)。
+    README §13「なぜこの解か / どの制約が重要か / どのアルゴリズムか / 他候補との違い /
+    改善余地」を返す。"""
+    service = SolutionExplanationService(session, redis)
+    return await service.explain(
+        solution_id,
+        user_id=current_user.id,
+        bypass_rate_limit=current_user.is_superuser,
+    )
