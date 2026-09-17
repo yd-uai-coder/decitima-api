@@ -26,6 +26,10 @@ class FakeLLM:
         """通常のinvoke呼び出しの結果としてAIMessageを返す。"""
         return AIMessage(content=self._content)
 
+    async def ainvoke(self, messages: Any) -> AIMessage:
+        """invoke の非同期版(結果は同じ)。"""
+        return self.invoke(messages)
+
     def with_structured_output(self, schema: type[BaseModel]) -> _FakeStructuredLLM:
         """構造化出力用のサブクライアントを返す。呼ばれた schema を記録する。"""
         self.structured_output_calls.append(schema)
@@ -41,3 +45,7 @@ class _FakeStructuredLLM:
     def invoke(self, _messages: Any) -> BaseModel | None:
         """構造化済みレスポンスをそのまま返す。"""
         return self._structured
+
+    async def ainvoke(self, messages: Any) -> BaseModel | None:
+        """invoke の非同期版(結果は同じ)。"""
+        return self.invoke(messages)

@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     SIMULATE_SUBMIT_RATE_LIMIT_PER_HOUR: int = 10
     SIMULATE_SUBMIT_RATE_LIMIT_PER_DAY: int = 50
 
+    # Algorithm Recommendation のレート制限（単位時間あたりの上限回数）
+    RECOMMEND_RATE_LIMIT_PER_HOUR: int = 20
+    RECOMMEND_RATE_LIMIT_PER_DAY: int = 100
 
 @lru_cache
 def get_settings() -> Settings:
