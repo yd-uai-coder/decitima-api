@@ -16,7 +16,7 @@ from app.services.errors import NoAlgorithmError
 # /benchmark の runs=3 逐次実行でも SOLVE_TIMEOUT_SECONDS(10秒)に収まる規模に制限する。
 # 超える場合は解の質を多少落としてでも確実に完走する greedy にフォールバックする。
 # (暫定閾値。Phase 15 の性能テストで見直す可能性あり)
-_MAX_KNAPSACK_DP_CELLS = 2_000_000
+_MAX_KNAPSACK_DP_CELLS = 4_000_000
 
 def _preferred_name(problem: OptimizationProblem) -> str | None:
     """問題特性から使いたい meta.name を決める。候補に無ければ呼び出し側が先頭にフォールバック。"""

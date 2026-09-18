@@ -507,10 +507,14 @@ def build_travel_problem(
     )
 
 
-def build_scaled_travel_problem(n_places: int, seed: int = 0) -> OptimizationProblem:
+def build_scaled_travel_problem(
+    n_places: int, seed: int = 0, *, budget: float = 20, time_budget: float = 20
+) -> OptimizationProblem:
     """place を n_places 個ランダム生成した Travel 問題(規模別の analysis / プロパティテスト用)。
 
     legs は「一直線に繋ぐ + seed で数本の近道」。RNG の呼び出し順を固定して決定論を保つ。
+    `budget`/`time_budget` は既定 20(Phase 3〜9 時点の挙動)── Phase 15-2 で knapsack_dp の
+    DP グリッド肥大化を実測するために引数化した。
     """
     rng = random.Random(seed)
     places = [Place(id="P0", name="home", value=0, cost=0, duration=0)]
@@ -547,7 +551,12 @@ def build_scaled_travel_problem(n_places: int, seed: int = 0) -> OptimizationPro
         objectives=[Objective(sense="maximize", target="total_value")],
         constraints=[],
         data=TravelData(
-            places=places, legs=legs, budget=20, time_budget=20, start="P0", preferences={}
+            places=places,
+            legs=legs,
+            budget=budget,
+            time_budget=time_budget,
+            start="P0",
+            preferences={},
         ),
     )
 

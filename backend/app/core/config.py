@@ -79,6 +79,20 @@ class Settings(BaseSettings):
     # 1 リクエストで LLM を最大 llm_runs(既定5、上限20)回呼ぶため Benchmark と同程度に絞る
     COMPARE_RATE_LIMIT_PER_HOUR: int = 10
     COMPARE_RATE_LIMIT_PER_DAY: int = 50
+
+    # arq ワーカーの同時実行ジョブ数(WorkerSettings.max_jobs)。
+    # solve_job は CPU バウンドな solve() を GIL 下で実行するため、同時実行数を増やしても
+    # 真の並列化はされない(実測は `Phase-15-5.md`)。arq 既定の 10 は I/O バウンドな
+    # ワークロード向けの値で、この worker には過大 ── VPS の実コア数に応じて調整する前提で
+    # env 変数化し、既定値は控えめな 4 にする。
+    WORKER_MAX_JOBS: int = 4
+
+    # app/core/config.py(改訂、抜粋)
+    # (Phase 15-9) E2E テスト専用フラグ。true のとき get_gemini_llm() は実際の Gemini API を
+    # 呼ばず、決定論的な固定応答を返すフェイクを返す。既定は false(本番は絶対に有効化しない。
+    # .env にも書かず E2E 実行時だけ環境変数で渡す)。
+    E2E_TESTING: bool = False
+
     
 @lru_cache
 def get_settings() -> Settings:

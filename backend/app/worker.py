@@ -127,3 +127,4 @@ class WorkerSettings:
     on_startup = on_startup
     on_shutdown = on_shutdown
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
+    max_jobs = settings.WORKER_MAX_JOBS

@@ -40,7 +40,7 @@ class FakeLLM:
     def with_structured_output(self, schema: type[BaseModel]) -> _FakeStructuredLLM:
         """構造化出力用のサブクライアントを返す。呼ばれた schema を記録する。"""
         self.structured_output_calls.append(schema)
-        return _FakeStructuredLLM(self._structured)
+        return _FakeStructuredLLM(self._structured, self._structured_sequence)
 
 
 class _FakeStructuredLLM:

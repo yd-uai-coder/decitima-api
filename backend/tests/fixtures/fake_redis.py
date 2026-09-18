@@ -12,6 +12,7 @@ class FakeRedis:
 
     def __init__(self) -> None:
         self._counts: dict[str, int] = {}
+        self._values: dict[str, str] = {}
 
     async def incr(self, key: str) -> int:
         """key のカウンタを 1 増やして増加後の値を返す。"""
@@ -20,4 +21,13 @@ class FakeRedis:
 
     async def expire(self, key: str, seconds: int) -> bool:  # noqa: ARG002
         """TTL 設定。テストでは寿命を管理しないので何もしない。"""
+        return True
+    
+    async def get(self, key: str) -> str | None:
+        """key の値を返す(無ければ None)。"""
+        return self._values.get(key)
+
+    async def set(self, key: str, value: str, *, ex: int | None = None) -> bool:  # noqa: ARG002
+        """key に値を設定する。`ex`(TTL秒)はテストでは失効させないので記録しない。"""
+        self._values[key] = value
         return True

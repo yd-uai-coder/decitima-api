@@ -97,9 +97,10 @@ ignore = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-m 'not integration'"
+addopts = "-m 'not integration and not performance'"
 markers = [
     "integration: requires live PostgreSQL and Redis (see docker compose)",
+    "performance: large-input timing/behavior tests, slow by design (see Phase 15)",
 ]
 
 [tool.coverage.run]

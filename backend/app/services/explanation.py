@@ -2,12 +2,15 @@
 """Result Explanation サービス。
 
 Result Explanationの実装。永続化済みの `Solution`(`produced_by` +
-`metrics` + `violations` を必ず持つ `CandidateSolution`)を人間向けの説明文に変換する ──
-Phase 0 で敷いた説明可能性(NFR-4)の土台をここで回収する。
+`metrics` + `violations` を必ず持つ `CandidateSolution`)を人間向けの説明文に変換する 
 
 `AlgorithmRecommendationService`と同型: LangGraph を介さない素の async サービス、
 DB は `OptimizationReadService` 経由の読み取りのみ(このサービス自体は永続化しない)、
 LLM 呼び出しが失敗しても例外にせず `logger.warning` を残してグレースフルデグレードする。
+
+`explain()` の結果を `solution_id` キーで Redis にキャッシュする(TTL付き)。
+`Solution` は永続化後に不変なので同じ結果を再生成する意味が無く、Gemini API の実コストが
+ある呼び出しの繰り返しを避ける
 """
 
 from __future__ import annotations
@@ -31,6 +34,9 @@ from app.services.rate_limit import RateLimit, RateLimiter
 
 logger = logging.getLogger(__name__)
 
+_EXPLANATION_CACHE_TTL_SECONDS = 86400
+def _explanation_cache_key(solution_id: uuid.UUID) -> str:
+    return f"explain:{solution_id}"
 
 def _alternatives_text(problem_type: str, used_name: str) -> str:
     """採用アルゴリズム以外の、同じ problem_type の候補の説明を並べる(比較材料)。"""
@@ -101,6 +107,7 @@ class SolutionExplanationService:
         # session: 永続化済みの Problem/Solution を読み取るためだけに使う(書き込みなし)
         # redis: レート制限カウンタの保存に使う非同期Redisクライアント
         self._read = OptimizationReadService(session)
+        self._redis = redis
         self._rate_limiter = RateLimiter(
             redis,
             resource="explain",
@@ -123,6 +130,12 @@ class SolutionExplanationService:
 
         # get_solution/get_problem: 所有者スコープ付き読み取り(他ユーザーの解は 404)
         solution_row = await self._read.get_solution(solution_id, user_id=user_id)
+
+        cache_key = _explanation_cache_key(solution_id)
+        cached = await self._redis.get(cache_key)
+        if cached is not None:
+            return ExplanationResponse.model_validate_json(cached)
+
         problem_row = await self._read.get_problem(solution_row.problem_id, user_id=user_id)
         candidate = CandidateSolution.model_validate(solution_row.payload)
         problem = OptimizationProblem.model_validate(problem_row.payload)
@@ -134,12 +147,16 @@ class SolutionExplanationService:
             logger.warning("solution explanation LLM call failed: %r", exc)
             return _fallback_response(solution_id, problem, candidate)
 
-        return ExplanationResponse(
+        response = ExplanationResponse(
             solution_id=solution_id,
             problem_type=problem.problem_type,
             algorithm_name=candidate.produced_by.name,
             **llm_result.model_dump(),
         )
+        await self._redis.set(
+            cache_key, response.model_dump_json(), ex=_EXPLANATION_CACHE_TTL_SECONDS
+        )
+        return response
 
     async def _invoke_llm(
         self,

@@ -1,0 +1,60 @@
+# decitima-api の CI。lint/型チェック/テスト/性能回帰チェック/Dockerビルド検証。
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    env:
+      # CI では実 PostgreSQL/Redis を使わない(既定実行は -m 'not integration and not
+      # performance' で除外されるため、SQLite で十分。tests/conftest.py が接続前に設定する)
+      DATABASE_URL: sqlite+aiosqlite:///./_ci.db
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET_KEY: ci-only-not-a-real-secret
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --group analysis
+
+      - name: ruff check
+        run: uv run ruff check app tests analysis
+
+      - name: ruff format --check
+        run: uv run ruff format --check app tests analysis
+
+      - name: pyright
+        run: uvx pyright app tests
+
+      # 既定実行(-m 'not integration and not performance')── unit/api/analysis テスト
+      - name: pytest(既定 ── unit/api/analysis)
+        run: uv run pytest
+
+      # 大規模入力テスト(Phase 15-1〜15-3)は既定から除外されているので別ステップで明示実行
+      - name: pytest(大規模入力テスト、-m performance)
+        run: uv run pytest -m performance
+
+      # analysis/benchmark_report.py::regression()(Phase 3-8)の初めての実消費者(Phase 15-10)
+      - name: 性能回帰チェック(analysis.benchmark_report.regression)
+        run: uv run python -m scripts.ci_regression_check
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Docker build(runtime ステージ)
+        run: docker build --target runtime -t decitima-api-backend:ci .
+        working-directory: backend
