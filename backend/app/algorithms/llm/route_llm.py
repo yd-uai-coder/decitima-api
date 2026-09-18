@@ -13,9 +13,15 @@ Structuring/Recommendation/Explanation と異なり、失敗時のリトライ�
 from __future__ import annotations
 
 from typing import cast
+from pydantic import BaseModel
 
 from app.ai.llm.gemini import get_gemini_llm
-from app.algorithms.llm.common import LLM_ONLY_META, render_constraints, render_objectives
+from app.algorithms.llm.common import (
+    LLM_ONLY_META,
+    render_constraints,
+    render_objectives,
+    strip_problem_type,
+)
 from app.domain.problems.problem import OptimizationProblem
 from app.domain.problems.route_planner import RouteData
 from app.domain.solutions.route_planner import RouteSolution
@@ -47,7 +53,16 @@ class LlmOnlyRouteStrategy:
 
     def solve(self, problem: OptimizationProblem) -> CandidateSolution:
         data = cast(RouteData, problem.data)
-        llm = get_gemini_llm(temperature=0).with_structured_output(RouteSolution)
+        # strip_problem_type: 判別子は LLM に見せない(Gemini の構造化出力は Literal の
+        # 単一値制約(JSON Schema の const)を保証しないため。common.py 冒頭の解説を参照
+        llm = get_gemini_llm(temperature=0).with_structured_output(
+            strip_problem_type(RouteSolution)
+        )
         # invoke: 同期呼び出し(ComparisonService が asyncio.to_thread の中で呼ぶ前提)
-        result = cast(RouteSolution, llm.invoke(_prompt(problem, data)))
+        # cast: with_structured_output().invoke() の戻り型は dict | BaseModel にしか
+        # narrowing されない(Phase 11 の既知の型債務と同じ理由)
+        raw = cast(BaseModel, llm.invoke(_prompt(problem, data)))
+        result = RouteSolution(
+            problem_type="route_planning", **raw.model_dump(exclude={"problem_type"})
+        )
         return CandidateSolution(status="valid", assignments=result, produced_by=self.meta)

@@ -7,7 +7,8 @@
 """
 
 from __future__ import annotations
-
+from typing import Any
+from pydantic import BaseModel, create_model
 from app.domain.problems.problem import (
     ForbiddenConstraint,
     GenericConstraint,
@@ -49,3 +50,23 @@ def render_constraints(problem: OptimizationProblem) -> str:
         elif isinstance(c, GenericConstraint):
             lines.append(f"- [{c.severity}] {c.kind}: {c.description or '(説明なし)'}")
     return "\n".join(lines)
+
+
+def strip_problem_type(schema: type[BaseModel]) -> type[BaseModel]:
+    """LLM に渡す構造化出力スキーマから判別子フィールド problem_type を除く。
+
+    `Literal[...] = "..."` のような単一値フィールドは Pydantic の JSON Schema では
+    `"const"` になるが、Gemini の構造化出力(`response_json_schema`)は `const` を
+    サポートしないため制約が失われ、LLM が任意の文字列を埋めてしまう
+    (実測: `RouteSolution` で `"shortest_path"` のような無関係な値を生成)。
+    最初から見せず、各 `*_llm.py` の `solve()` 側で固定値を足し戻す。
+    """
+    # fields: Any にしておく ── create_model の **kwargs 展開はキーワードごとに違う型
+    # (str/tuple/ConfigDict 等)を取るため、動的な dict を渡すと pyright が静的に解決できない
+    # (Pydantic 公式でも既知の制限)。動的生成そのものが目的の関数なので Any で割り切る。
+    fields: dict[str, Any] = {
+        name: (field.annotation, field)
+        for name, field in schema.model_fields.items()
+        if name != "problem_type"
+    }
+    return create_model(f"{schema.__name__}Llm", **fields)

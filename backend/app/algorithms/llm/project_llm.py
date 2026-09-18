@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 from typing import cast
+from pydantic import BaseModel
 
 from app.ai.llm.gemini import get_gemini_llm
-from app.algorithms.llm.common import LLM_ONLY_META, render_constraints, render_objectives
+from app.algorithms.llm.common import (
+    LLM_ONLY_META,
+    render_constraints,
+    render_objectives,
+    strip_problem_type,
+)
 from app.domain.problems.problem import OptimizationProblem
 from app.domain.problems.project_manager import ProjectData
 from app.domain.solutions.project_manager import ProjectSolution
@@ -41,6 +47,12 @@ class LlmOnlyProjectStrategy:
 
     def solve(self, problem: OptimizationProblem) -> CandidateSolution:
         data = cast(ProjectData, problem.data)
-        llm = get_gemini_llm(temperature=0).with_structured_output(ProjectSolution)
-        result = cast(ProjectSolution, llm.invoke(_prompt(problem, data)))
+        # strip_problem_type: 判別子は LLM に見せない(common.py 冒頭の解説を参照)
+        llm = get_gemini_llm(temperature=0).with_structured_output(
+            strip_problem_type(ProjectSolution)
+        )
+        raw = cast(BaseModel, llm.invoke(_prompt(problem, data)))
+        result = ProjectSolution(
+            problem_type="project_scheduling", **raw.model_dump(exclude={"problem_type"})
+        )
         return CandidateSolution(status="valid", assignments=result, produced_by=self.meta)
