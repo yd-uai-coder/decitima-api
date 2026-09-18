@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     #  Result Explanation のレート制限（単位時間あたりの上限回数）
     EXPLAIN_RATE_LIMIT_PER_HOUR: int = 20
     EXPLAIN_RATE_LIMIT_PER_DAY: int = 100
+
+    # LLM vs Algorithm Comparison のレート制限(単位時間あたりの上限回数)。
+    # 1 リクエストで LLM を最大 llm_runs(既定5、上限20)回呼ぶため Benchmark と同程度に絞る
+    COMPARE_RATE_LIMIT_PER_HOUR: int = 10
+    COMPARE_RATE_LIMIT_PER_DAY: int = 50
     
 @lru_cache
 def get_settings() -> Settings:

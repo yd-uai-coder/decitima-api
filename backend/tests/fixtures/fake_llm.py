@@ -15,11 +15,18 @@ from pydantic import BaseModel
 class FakeLLM:
     """Gemini LLM クライアント(`get_gemini_llm` の戻り値)の挙動を模したスタブ。"""
 
-    def __init__(self, content: str | None = None, structured: BaseModel | None = None) -> None:
+    def __init__(
+        self,
+        content: str | None = None,
+        structured: BaseModel | None = None,
+        structured_sequence: list[BaseModel | Exception] | None = None,  # (Phase 14-5)
+    ) -> None:
         # content: invoke()が返すAIMessageの本文
-        # structured: with_structured_output().invoke()が返す構造化レスポンス
+        # structured: with_structured_output().invoke()が返す構造化レスポンス(固定1件)
+        # structured_sequence: 呼び出しごとに1つずつ消費する構造化レスポンス/例外の列(Phase 14-5)
         self._content = content
         self._structured = structured
+        self._structured_sequence = structured_sequence
         self.structured_output_calls: list[type[BaseModel]] = []
 
     def invoke(self, _messages: Any) -> AIMessage:
@@ -39,13 +46,24 @@ class FakeLLM:
 class _FakeStructuredLLM:
     """with_structured_output()が返す、構造化レスポンスのみを返すテスト用スタブ。"""
 
-    def __init__(self, structured: BaseModel | None) -> None:
+    def __init__(
+        self,
+        structured: BaseModel | None,
+        sequence: list[BaseModel | Exception] | None = None,  # (Phase 14-5)
+    ) -> None:
         self._structured = structured
+        self._sequence = sequence
 
     def invoke(self, _messages: Any) -> BaseModel | None:
-        """構造化済みレスポンスをそのまま返す。"""
+        """構造化済みレスポンスをそのまま返す。sequence 指定時は先頭から1つずつ消費し、
+        値が Exception インスタンスならその回の呼び出しとして送出する(Phase 14-5)。"""
+        if self._sequence is not None:
+            item = self._sequence.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
         return self._structured
 
-    async def ainvoke(self, messages: Any) -> BaseModel | None:
+    async def ainvoke(self, messages: Any) -> BaseModel | None:  # (Phase 12-2)
         """invoke の非同期版(結果は同じ)。"""
         return self.invoke(messages)

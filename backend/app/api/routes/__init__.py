@@ -9,7 +9,8 @@ from app.api.routes.verify import router as verify_router
 from app.api.routes.benchmark import router as benchmark_router
 from app.api.routes.jobs import router as jobs_router
 from app.api.routes.simulate import router as simulate_router
-from app.api.routes.structure import router as structure_router  # (Phase 11-7)
+from app.api.routes.structure import router as structure_router
+from app.api.routes.comparison import router as comparison_router
 
 # 各機能別ルーターを1つのAPIRouterに集約し、main.pyから一括でincludeできるようにする。
 api_router = APIRouter()
@@ -23,3 +24,4 @@ api_router.include_router(benchmark_router)
 api_router.include_router(jobs_router)
 api_router.include_router(simulate_router)
 api_router.include_router(structure_router)
+api_router.include_router(comparison_router)

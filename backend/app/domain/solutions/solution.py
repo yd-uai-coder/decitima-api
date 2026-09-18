@@ -21,7 +21,7 @@ from app.domain.solutions.logistics import LogisticsSolution
 # ---------------------------------------------------------------------------
 
 # AlgorithmMeta.family は app/algorithms/ の 5 サブパッケージと 1 対 1
-type AlgorithmFamily = Literal["search", "graph", "optimization", "scheduling", "patterns"]
+type AlgorithmFamily = Literal["search", "graph", "optimization", "scheduling", "patterns","llm"]
 
 # 解の状態
 type SolutionStatus = Literal["valid", "invalid", "infeasible"]
@@ -40,7 +40,7 @@ class AlgorithmMeta(BaseModel):
     """解を生成したアルゴリズムの素性。比較可能性（NFR-3）の土台になる。"""
 
     name: str
-    family: Literal["search", "graph", "optimization", "scheduling", "patterns"]
+    family: AlgorithmFamily
     # implementation: "handwritten" / "library:networkx" / "library:ortools" など
     implementation: str
     time_complexity: str | None = None
