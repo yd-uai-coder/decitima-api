@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """Job の ORM モデル。
 ハイブリッド JSONB パターン ── 検索キー(user_id / problem_type / status)だけカラム化。
 

@@ -42,4 +42,8 @@ USER app
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers / --forwarded-allow-ips: nginx が付ける X-Forwarded-For から接続元 IP を取る
+# (認証エンドポイントの IP 単位レート制限のキー)。"*" を許すのは、この backend が公開ポートを
+# 持たず(docker-compose.prod.yml)nginx からしか届かないため。backend を直接公開する構成では
+# 使わないこと(X-Forwarded-For を偽装されて IP 制限を回避される)。
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

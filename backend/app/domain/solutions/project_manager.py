@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 8
 """Project Manager の解(葉モジュール)。
 
 スケジュール = タスクの実行順 + 各タスクの開始 / 終了時刻 + クリティカルパス + makespan。

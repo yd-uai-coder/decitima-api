@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "FastAPI + LangChain + LangGraph backend"
+description = "DeciTima API ── 決定論的アルゴリズムによる最適化 + LLM による構造化・説明"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.19.1",
@@ -82,14 +82,12 @@ typeCheckingMode = "standard"
 # 既知の型債務(テンプレート由来)。DeciTima の新規コード(app/domain, app/algorithms 等)は
 # standard で厳格に保ちつつ、下記は当面診断を抑制する。いずれも fastapi-langchain-template
 # への還元候補として別途対応する。
-#   - app/ai/**                         : Phase 10 で DeciTima 用に作り替える際に解消
 #   - app/repositories/conversation.py  : owner スコープの get_by_id override(設計上の割り切り)
-#   - tests/unit/test_ai_graph_nodes.py : GraphState を部分 dict で渡すテスト
 #   - tests/unit/test_auth_service.py   : FakeRedis の型付け未整備
+# (`app/ai/**` と `tests/unit/test_ai_graph_nodes.py` は Phase 11 の作り替えで解消済みのため
+#  ignore から外した。E2E フェイクの戻り型 1 件だけ gemini.py に個別の pyright ignore を置く)
 ignore = [
-    "app/ai",
     "app/repositories/conversation.py",
-    "tests/unit/test_ai_graph_nodes.py",
     "tests/unit/test_auth_service.py",
 ]
 

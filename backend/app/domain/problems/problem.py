@@ -86,13 +86,6 @@ class RequiredInclusionConstraint(ConstraintBase):
     items: list[str]
 
 
-class ForbiddenConstraint(ConstraintBase):
-    """解に含めてはならない要素を列挙する制約（通行禁止エッジ等）。"""
-
-    kind: Literal["forbidden"] = "forbidden"
-    items: list[str]
-
-
 class StaffingConstraint(ConstraintBase):
     """各スロットの必要人数を満たすことを要求する制約（詳細は data 側が持つ）。"""
 

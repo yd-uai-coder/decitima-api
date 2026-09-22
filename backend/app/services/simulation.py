@@ -24,7 +24,6 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.algorithms.optimization.threshold_search import find_threshold
-from app.core.config import settings
 from app.domain.problems.problem import OptimizationProblem
 from app.domain.solutions.solution import SolutionStatus
 from app.schemas.simulation import (
@@ -37,6 +36,8 @@ from app.schemas.simulation import (
 )
 from app.services.algorithm_selection import select_strategy
 from app.services.errors import InfeasibleProblemError, NoAlgorithmError, ProblemValidationError
+from app.services.isolation import run_isolated
+from app.services.timeouts import effective_timeout
 from app.services.validation import ProblemValidationService
 from app.services.verification import SolutionVerificationService
 
@@ -109,10 +110,8 @@ async def _run_scenario(
 ) -> tuple[SolutionStatus, dict[str, float], str]:
     """`_solve_once` をスレッドに逃がして timeout を監視する(SolveService と同じ理由)。"""
 
-    return await asyncio.wait_for(
-        # 制限時間:timeout_seconds -> 別スレッドで実行を確保する
-        asyncio.to_thread(_solve_once, problem, algorithm), timeout_seconds
-    )
+    # 制限時間:timeout_seconds。SOLVE_ISOLATION=process なら超過時に子プロセスごと止める
+    return await run_isolated(_solve_once, problem, algorithm, timeout_seconds=timeout_seconds)
 
 
 async def _run_one_scenario(
@@ -138,7 +137,7 @@ async def run_simulation(
     その 1 件を status="invalid_scenario" として記録するだけで全体は続行する
     (「どの条件なら、どの選択をするべきか」を支援する ── 一部が無効でも比較は続く)。
     """
-    timeout_seconds = timeout_seconds or request.timeout_seconds or settings.SOLVE_TIMEOUT_SECONDS
+    timeout_seconds = effective_timeout(timeout_seconds or request.timeout_seconds)
 
     # base ── override 無しの元の問題(比較の基準点)。algorithm 未指定ならここで自動選択
     # された名前を全シナリオに固定する(条件だけを変え、アルゴリズム選択の揺れを比較に

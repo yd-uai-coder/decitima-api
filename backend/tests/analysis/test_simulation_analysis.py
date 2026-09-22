@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 10
 """作業単位 10-5: analysis/simulation_analysis.py(分析トラック)。
 
 対象 = ファイル → DataFrame / DataFrame → DataFrame の純粋関数。ドライバ = このテスト関数

@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+from functools import lru_cache
 from typing import Any
 
 import jwt
@@ -22,6 +23,14 @@ class TokenType(StrEnum):
 def hash_password(password: str) -> str:
     """平文パスワードをArgon2でハッシュ化して返す。"""
     return _password_hash.hash(password)
+
+
+@lru_cache
+def dummy_password_hash() -> str:
+    """存在しないユーザーに対する認証でも、実在ユーザーと同じ Argon2 検証コストを払うための
+    ダミーハッシュ。ユーザー不在のとき検証を省くと応答時間が短くなり、その差でメールアドレスの
+    存在を推測できる(ユーザー列挙)。初回呼び出し時に 1 度だけ生成する。"""
+    return _password_hash.hash("dummy-password-for-timing-equalization")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

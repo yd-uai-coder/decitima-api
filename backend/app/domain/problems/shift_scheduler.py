@@ -1,3 +1,5 @@
+"""Shift Scheduler の問題固有データ(葉モジュール)。"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator, model_validator

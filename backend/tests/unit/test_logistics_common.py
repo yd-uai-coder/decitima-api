@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """作業単位 9-2: logistics_common(parse / all_pairs / capacity_ok / route_for_vehicle /
 route_distance / logistics_solution)+ verification._verify_logistics_routes。
 

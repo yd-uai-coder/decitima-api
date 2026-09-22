@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-6: analysis/travel_analysis.py(分析トラック)。
 
 対象 = DataFrame → DataFrame の純粋関数。ドライバ = このテスト関数。スタブ不要

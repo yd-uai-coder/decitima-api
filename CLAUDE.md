@@ -81,7 +81,7 @@ routes → services ─┬→ domain (app/domain)     ※ 純粋。問題・制�
 
 ## レート制限
 
-- `app/services/rate_limit.py`の`RateLimiter`は、Redisの`INCR`+`EXPIRE`を使った汎用的な複数ウィンドウ（時間単位・日単位など）のレート制限クラス。
+- `app/services/rate_limit.py`の`RateLimiter`は、Redisの`INCR`+`EXPIRE NX`を`MULTI/EXEC`で1往復にまとめた汎用的な複数ウィンドウ（時間単位・日単位など）のレート制限クラス（別々に送るとINCR直後のクラッシュでTTL無しキーが残り永久ロックになるため。`EXPIRE NX`はRedis 7.0以上）。認証前のlogin/registerはIP・メールをキーにする`services/auth_rate_limit.py`。
 - **なぜ`ChatService`のコンストラクタに直接ロジックを書かず、独立したサービスに切り出したか**：レート制限の対象・ウィンドウ・上限値は機能ごとに異なりうるため、`RateLimiter`を汎用部品として切り出し、各サービスは「どのresource名で、どのウィンドウ設定を使うか」だけを指定する形にしている。
 
 ## LLM/LangGraph連携

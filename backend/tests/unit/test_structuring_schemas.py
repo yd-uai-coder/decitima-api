@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 11
 """作業単位 11-1: 抽出・分類スキーマ(純粋 Pydantic)。
 
 テスト対象 / ドライバ / スタブ:

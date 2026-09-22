@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 13
 """作業単位 13-3: `POST /api/v1/solutions/{solution_id}/explain` の契約。
 
 サービス層の振る舞い(LLM呼び出し・フォールバック・レート制限)は

@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 from dataclasses import dataclass
 
@@ -27,7 +26,9 @@ from app.repositories.optimization import ProblemRepository, SolutionRepository
 from app.schemas.optimization import SolveRequest
 from app.services.algorithm_selection import select_strategy
 from app.services.errors import SolveTimeoutError
+from app.services.isolation import run_isolated
 from app.services.rate_limit import RateLimit, RateLimiter
+from app.services.timeouts import effective_timeout
 from app.services.validation import ProblemValidationService
 from app.services.verification import SolutionVerificationService
 
@@ -79,10 +80,11 @@ class SolveService:
         strategy = select_strategy(problem, request.algorithm)
 
         # (d) 計算 + タイムアウト監視。solve は同期・純粋なのでスレッドに逃がして wait_for する。
-        #     タイムアウトしてもスレッド自体は止められない(MVP の割り切り。Phase-0-5.md §5)。
-        timeout = request.timeout_seconds or settings.SOLVE_TIMEOUT_SECONDS
+        #     thread 方式ではタイムアウトしてもスレッド自体は止められない(Phase-0-5.md §5)。
+        #     SOLVE_ISOLATION=process なら子プロセスごと kill する(services/isolation.py)。
+        timeout = effective_timeout(request.timeout_seconds)
         try:
-            raw = await asyncio.wait_for(asyncio.to_thread(strategy.solve, problem), timeout)
+            raw = await run_isolated(strategy.solve, problem, timeout_seconds=timeout)
         except TimeoutError as exc:
             raise SolveTimeoutError(f"solve exceeded {timeout}s") from exc
 

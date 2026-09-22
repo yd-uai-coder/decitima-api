@@ -1,4 +1,3 @@
-# DeciTima samples │ 作業単位 15-2
 """`_MAX_KNAPSACK_DP_CELLS` の実測ベースの回帰テスト。
 
 対象: `knapsack_2d`(travel/logistics 共通の DP 本体)。ドライバ: このテスト関数。

@@ -11,12 +11,8 @@
 `ProblemStructuringService` は以前(テンプレート由来)の `ChatService` を置き換える
 (レート制限 → 会話取得/作成 → ワークフロー呼び出し → 会話記録、という骨格は踏襲しつつ
 
-`get_structuring_workflow` は関数内 import(`structure()` 冒頭)にしている ──
-`app.ai.graph.nodes` がこのモジュールの `EXTRACTORS`/`catalog_entries`/`catalog_ids`/
-`ground_references` を import するため、モジュール先頭で
-`app.ai.graph.workflow -> app.ai.graph.nodes -> app.services.structuring` と辿ると循環
-import になる。呼び出し時まで遅延させることで輪を断つ(実行時コストは無視できる ──
-Python は2回目以降の import をキャッシュから返す)。
+純粋な機構(`EXTRACTORS` / `build_overrides` / `catalog_*` / `ground_references`)は
+`services/structuring_support.py` にある(ワークフローのノードと循環 import にならないよう分離)。
 """
 
 from __future__ import annotations
@@ -27,33 +23,16 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.graph import workflow as structuring_workflow
 from app.core.config import settings
-from app.domain.problems.logistics import LogisticsData
-from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.problem import (
-    ForbiddenConstraint,
     OptimizationProblem,
-    RequiredInclusionConstraint,
 )
-from app.domain.problems.project_manager import ProjectData
-from app.domain.problems.route_planner import RouteData
-from app.domain.problems.shift_scheduler import ShiftData
-from app.domain.problems.travel_planner import TravelData
 from app.models.conversation import Conversation
 from app.repositories.conversation import ConversationRepository
-from app.schemas.structuring import (
-    ExtractedConstraint,
-    ExtractedObjective,
-    LogisticsDataPatch,
-    ProjectDataPatch,
-    RouteDataPatch,
-    ShiftDataPatch,
-    TravelDataPatch,
-)
 from app.services.errors import (
     ConversationNotFoundError,
     GenerationFailedError,
@@ -67,120 +46,6 @@ MAX_GENERATION_ATTEMPTS = 3  # LLM呼び出しの一時的な失敗に対する�
 RETRY_DELAY_SECONDS = 1.0  # リトライ間隔(秒)
 
 logger = logging.getLogger(__name__)
-
-# problem_type ごとの Data Patch スキーマ。新アルゴリズムの追加と同じく既存コードに触れず
-# 1 行足すだけで拡張できる(app/algorithms/registry.py::REGISTRY と同型)。
-# network_design はトップレベル・スカラーを持たないため None(= LLM を呼ばない)。
-EXTRACTORS: dict[str, type[BaseModel] | None] = {
-    "route_planning": RouteDataPatch,
-    "network_design": None,
-    "shift_scheduling": ShiftDataPatch,
-    "travel_planning": TravelDataPatch,
-    "project_scheduling": ProjectDataPatch,
-    "logistics_planning": LogisticsDataPatch,
-}
-
-
-def build_overrides(
-    objectives_patch: list[ExtractedObjective],
-    constraints_patch: list[ExtractedConstraint],
-    data_patch: dict[str, Any],
-) -> dict[str, Any]:
-    """LLM の抽出結果を `apply_overridesにそのまま渡せる overrides dict に組み立てる。
-
-    objectives_patch が空なら「抽出できなかった」とみなしベースの objectives を維持する
-    (overrides に "objectives" キーを含めない)。constraints は空リストも正当な意味
-    (制約なし)を持つため、空でも常に "constraints" キーを含める。
-    """
-    overrides: dict[str, Any] = {
-        "constraints": [c.model_dump(exclude_none=True) for c in constraints_patch]
-    }
-    if objectives_patch:
-        overrides["objectives"] = [o.model_dump() for o in objectives_patch]
-    if data_patch:
-        overrides["data"] = data_patch
-    return overrides
-
-
-def catalog_ids(problem: OptimizationProblem) -> set[str]:
-    """problem.data のカタログ(list フィールド)が持つ id を全て集める(ドメインごとに形が
-    違うので isinstance で分岐。route はさらに edges も id 参照の対象になる)。"""
-    data = problem.data
-    if isinstance(data, RouteData):
-        return {n.id for n in data.nodes} | {e.id for e in data.edges}
-    if isinstance(data, NetworkDesignData):
-        return {n.id for n in data.nodes} | {link.id for link in data.links}
-    if isinstance(data, ShiftData):
-        return {s.id for s in data.staff} | {slot.id for slot in data.slots}
-    if isinstance(data, TravelData):
-        return {p.id for p in data.places} | {leg.id for leg in data.legs}
-    if isinstance(data, ProjectData):
-        return {t.id for t in data.tasks} | {d.id for d in data.dependencies}
-    if isinstance(data, LogisticsData):
-        return (
-            {n.id for n in data.nodes}
-            | {seg.id for seg in data.segments}
-            | {v.id for v in data.vehicles}
-            | {d.id for d in data.deliveries}
-        )
-    return set()
-
-
-def catalog_entries(problem: OptimizationProblem) -> list[tuple[str, str | None]]:
-    """problem.data の「主要な名前付きエンティティ」を (id, name または label) のペアで返す。
-    extract_objectives_constraintsのプロンプトに埋め込み、LLM に「id で参照する」
-    ことを徹底させるために使う(catalog_ids と違い、edge/leg/segment のような無名の
-    関係エンティティは含めない ── 人間が自然言語で名指しするのは大抵ノード側のため)。"""
-    data = problem.data
-    if isinstance(data, RouteData):
-        return [(n.id, n.label) for n in data.nodes]
-    if isinstance(data, NetworkDesignData):
-        return [(n.id, n.label) for n in data.nodes]
-    if isinstance(data, ShiftData):
-        return [(s.id, s.name) for s in data.staff]
-    if isinstance(data, TravelData):
-        return [(p.id, p.name) for p in data.places]
-    if isinstance(data, ProjectData):
-        return [(t.id, t.name) for t in data.tasks]
-    if isinstance(data, LogisticsData):
-        return [(n.id, n.label) for n in data.nodes]
-    return []
-
-
-def ground_references(problem: OptimizationProblem, ids: set[str]) -> list[str]:
-    """LLM が生成した id 参照がカタログに実在するかを確認する。対象は constraints の
-    items(forbidden / required_inclusion)と、data の単一 id 参照フィールド
-    (route の start/goal、travel の start、logistics の depot_id)。
-
-    名前(name/label)は対象外 ── downstream の集計(`solution_element_ids` 等)は id で
-    突き合わせるため、名前が紛れ込むのは「実在しない id」と同じ害(黙って無視される、または
-    誤って missing 扱いになる)を持つ。プロンプト側で「必ず id を使う」ことを徹底し、ここは
-    その契約が守られているかの最後の砦として機能する。
-    """
-    issues: list[str] = []
-    for c in problem.constraints:
-        if isinstance(c, (RequiredInclusionConstraint, ForbiddenConstraint)):
-            issues.extend(
-                f"{c.kind} constraint references unknown id {item!r}"
-                for item in c.items
-                if item not in ids
-            )
-
-    data = problem.data
-    id_fields: list[tuple[str, str | None]] = []
-    if isinstance(data, RouteData):
-        id_fields = [("start", data.start), ("goal", data.goal)]
-    elif isinstance(data, TravelData):
-        id_fields = [("start", data.start)]
-    elif isinstance(data, LogisticsData):
-        id_fields = [("depot_id", data.depot_id)]
-    issues.extend(
-        f"data.{field_name} references unknown id {value!r}"
-        for field_name, value in id_fields
-        if value is not None and value not in ids
-    )
-    return issues
-
 
 class ProblemStructuringService:
     """会話へのメッセージ送信、レート制限、Structuring ワークフロー呼び出しを取りまとめる
@@ -220,9 +85,7 @@ class ProblemStructuringService:
             conversation_id=conversation.id, role="user", content=text
         )
 
-        from app.ai.graph.workflow import get_structuring_workflow  # 循環 import 回避(§冒頭)
-
-        workflow = get_structuring_workflow()
+        workflow = structuring_workflow.get_structuring_workflow()
         result = await self._invoke_with_retry(
             workflow.ainvoke,
             {

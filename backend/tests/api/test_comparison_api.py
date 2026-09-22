@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 14
 """作業単位 14-6: `POST /api/v1/compare` の契約。
 
 サービス層の振る舞い(集計・エラー率・フォールバック)は `test_comparison_service.py` で

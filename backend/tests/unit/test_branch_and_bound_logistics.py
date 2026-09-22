@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """作業単位 9-5: BranchAndBoundLogisticsStrategy(確定距離を下界に分枝限定)。
 
 テスト対象 / ドライバ / スタブ:

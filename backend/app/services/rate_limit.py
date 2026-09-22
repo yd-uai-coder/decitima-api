@@ -29,11 +29,15 @@ class RateLimiter:
         # limit: 設定済みの制限ウィンドウを1つずつ順番にチェックする
         for limit in self._limits:
             key = self._build_key(identifier, limit.window_seconds)
-            # count: このウィンドウ内でのインクリメント後のリクエスト回数
-            count = await self._redis.incr(key)
-            if count == 1:
-                # 初回アクセス時のみTTLを設定し、ウィンドウの寿命を開始させる
-                await self._redis.expire(key, limit.window_seconds)
+            # count: このウィンドウ内でのインクリメント後のリクエスト回数。
+            # incr と expire を MULTI/EXEC で 1 往復にまとめる ── 別々に送ると incr 直後に
+            # プロセスが落ちた場合に TTL 無しのキーが残り、その利用者が永久に制限される。
+            # expire の NX は「TTL 未設定のときだけ設定」(ウィンドウは最初のアクセスで開始し、
+            # 以後のアクセスで延長しない)。Redis 7.0 以降が必要(本プロジェクトは 8)。
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.incr(key)
+                pipe.expire(key, limit.window_seconds, nx=True)
+                count, _ = await pipe.execute()
             if count > limit.max_requests:
                 raise RateLimitExceededError(
                     f"Rate limit exceeded for {self._resource} "

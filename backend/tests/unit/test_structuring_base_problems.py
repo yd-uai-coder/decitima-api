@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 11
 """作業単位 11-2: ベース問題(`app.domain.problems.base_problems`)。
 
 テスト対象 / ドライバ / スタブ:

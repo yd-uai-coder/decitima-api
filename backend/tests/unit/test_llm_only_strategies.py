@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 14(14-2: route/network / 14-3: shift/project / 14-4: travel/logistics)
 """作業単位 14-2/14-3/14-4: `app/algorithms/llm/` の6 `LlmOnly*Strategy`。
 
 テスト対象 / ドライバ / スタブ:

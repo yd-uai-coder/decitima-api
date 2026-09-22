@@ -56,7 +56,7 @@ def working_days_by_staff(data: ShiftData, assignments: Assignment) -> dict[str,
 
 
 def labor_cost(data: ShiftData, assignments: Assignment) -> float:
-    """Σ(時給 × スロット時間)。README §12.2 の第 1 目的(最小化)。"""
+    """Σ(時給 × スロット時間)。最小化"""
     hours = _slot_hours(data)
     wage = {s.id: s.hourly_wage for s in data.staff}
     total = 0.0
@@ -67,7 +67,7 @@ def labor_cost(data: ShiftData, assignments: Assignment) -> float:
 
 
 def day_off_satisfaction(data: ShiftData, assignments: Assignment) -> float:
-    """守れた希望休 ÷ 希望休の総数。希望休が無ければ 1.0。README §12.2 の第 2 目的(最大化)。"""
+    """守れた希望休 ÷ 希望休の総数。希望休が無ければ 1.0。最大化。"""
     working = working_days_by_staff(data, assignments)
     requested = kept = 0
     for st in data.staff:

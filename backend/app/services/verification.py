@@ -24,13 +24,13 @@ from app.domain.problems.network_design import NetworkDesignData
 from app.domain.problems.problem import OptimizationProblem
 from app.domain.problems.project_manager import ProjectData
 from app.domain.problems.travel_planner import TravelData
-from app.domain.problems.logistics import LogisticsData  # (Phase 9-2)
+from app.domain.problems.logistics import LogisticsData
 from app.domain.solutions.solution import CandidateSolution, ConstraintViolation
 from app.domain.solutions.network_design import NetworkDesignSolution
 from app.domain.solutions.project_manager import ProjectSolution
 from app.domain.solutions.structure import structural_verify
 from app.domain.solutions.travel_planner import TravelSolution
-from app.domain.solutions.logistics import LogisticsSolution  # (Phase 9-2)
+from app.domain.solutions.logistics import LogisticsSolution
 
 
 class SolutionVerificationService:
@@ -51,6 +51,8 @@ class SolutionVerificationService:
             *_verify_project_resources(problem, solution), 
             *_verify_logistics_routes(problem, solution),
             ]
+
+        # 元のモデルに変更を加えずコピーを作って変更する。
         enriched = solution.model_copy(update={"metrics": {**solution.metrics, **extra_metrics}})
 
         # 2. 制約 kind ごとのチェッカー。enriched の metrics(構造検証後)を読む
@@ -80,11 +82,15 @@ def _verify_spanning_tree(
     problem: OptimizationProblem, solution: CandidateSolution
 ) -> list[ConstraintViolation]:
     """network_design 解: 選んだリンクが全拠点を繋ぐ木になっているか。"""
+
+    # problem.dataがNetworkDesignDataでなければ空配列を帰す。
     if not (
         isinstance(problem.data, NetworkDesignData)
         and isinstance(solution.assignments, NetworkDesignSolution)
     ):
         return []
+
+    #　pairs が node_ids 全体を繋ぐ全域木でなければ空配列を帰す
     link_by_id = {link.id: link for link in problem.data.links}
     pairs = [
         link_by_id[lid].endpoints
@@ -94,6 +100,7 @@ def _verify_spanning_tree(
     node_ids = [n.id for n in problem.data.nodes]
     if forms_spanning_tree(node_ids, pairs):
         return []
+    
     return [
         ConstraintViolation(
             constraint_kind="network_structure",
@@ -111,6 +118,8 @@ def _verify_travel_plan(
     Floyd-Warshall で全点対距離を出し直し、solution.visit_order の順(再最適化しない)で
     place + 移動のコストを積んで比べる。合わなければ strategy が嘘をついている(hard)。
     """
+
+    # problem.dataがTravelDataでなければ空配列を帰す。
     if not (
         isinstance(problem.data, TravelData) and isinstance(solution.assignments, TravelSolution)
     ):
@@ -215,7 +224,7 @@ def _verify_logistics_routes(
 
 
 def _soft_penalty(problem: OptimizationProblem, violations: list[ConstraintViolation]) -> float:
-    """違反した soft 制約の penalty 合計。Phase 1 は kind 一致で素朴に対応付ける"""
+    """違反した soft 制約の penalty 合計。"""
     violated_kinds = {v.constraint_kind for v in violations if v.severity == "soft"}
     return sum(
         (c.penalty or 0.0)

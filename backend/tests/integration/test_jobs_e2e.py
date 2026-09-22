@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """作業単位 9-8: ジョブキューの end-to-end(実 PostgreSQL + 実 Redis + arq)。
 作業単位 10-4: simulate ジョブの e2e を追加(`simulate_job`)。
 

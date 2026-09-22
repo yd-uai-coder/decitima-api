@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-2: knapsack_2d(純粋関数)。
 
 テスト対象 / ドライバ / スタブ:

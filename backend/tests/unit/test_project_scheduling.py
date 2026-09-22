@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 8
 """作業単位 8-3: project_scheduling の配線(schema union / semantic / structure / 閉路ゲート)。
 
 テスト対象 / ドライバ / スタブ:

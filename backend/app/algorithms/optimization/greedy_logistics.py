@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """GreedyLogisticsStrategy(貪欲法)── 実際の距離増分が最小の車両へ1件ずつ足す。
 
 KnapsackDpLogisticsStrategy との違い: DP は「容量だけを見た上界」(移動距離は無視)を出すが、

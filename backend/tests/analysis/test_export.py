@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 3
 """作業単位 3-8: analysis.export。
 
 対象 = `dump_rows`(session → JSONL の純粋部分)。ドライバ = `db_session`(インメモリ SQLite)+

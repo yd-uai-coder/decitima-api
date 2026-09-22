@@ -1,19 +1,20 @@
-# DeciTima samples │ Phase 9
 """JobService ── problem_type に依存しない横断サービス。重い solve をジョブキュー
 (arq)経由で非同期実行する。既存の同期 `SolveService`とは独立に動き、そちらは
 一切変更しない(9-8 の設計方針: ジョブキューは並存する横断インフラ)。
 
-ライフサイクル(投入側):
-  (a) レート制限          RateLimiter(resource="job_submit").enforce(user_id)
+ライフサイクル(投入側。solve / simulate で共通の `_submit`):
+  (a) レート制限          RateLimiter(resource=...).enforce(user_id)
   (b) Validation          ProblemValidationService.validate(problem) ← 不正はジョブを作る前に弾く
   (c) Job 行を作成 + commit(status="queued")
-  (d) arq へエンキュー ── 実際の solve はワーカープロセスが `app/worker.py::solve_job` で行う
+  (d) arq へエンキュー ── 実際の実行はワーカープロセスが `app/worker.py` で行う。
+      エンキューに失敗したら Job を failed にして(queued のまま孤児にしない)例外を伝播する
 
 `solve_job` 自身は `SolveService.solve` をそのまま呼ぶ(ロジックを重複させない ── 進行のルール #17)。
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from arq import create_pool
@@ -25,12 +26,16 @@ from app.core.config import settings
 from app.models.job import Job
 from app.repositories.job import JobRepository
 from app.schemas.optimization import SolveRequest
+from app.schemas.simulation import SimulationRequest
+from app.services.errors import NotFoundError
 from app.services.rate_limit import RateLimit, RateLimiter
 from app.services.validation import ProblemValidationService
-from app.schemas.simulation import SimulationRequest
+
+logger = logging.getLogger(__name__)
+
 
 class JobService:
-    """solve をジョブとして投入し、状態をポーリングできるようにする。"""
+    """solve / simulate をジョブとして投入し、状態をポーリングできるようにする。"""
 
     def __init__(self, session: AsyncSession, redis: Redis) -> None:
         self._session = session
@@ -70,10 +75,61 @@ class JobService:
         request: SolveRequest,
         bypass_rate_limit: bool = False,
     ) -> Job:
-        """ジョブを作成して arq に投入する。solve 自体はここでは実行しない。"""
+        """solve ジョブを作成して arq に投入する。solve 自体はここでは実行しない。"""
+        return await self._submit(
+            function="solve_job",
+            limiter=self._rate_limiter,
+            user_id=user_id,
+            request=request,
+            bypass_rate_limit=bypass_rate_limit,
+        )
+
+    async def enqueue_simulation(
+        self,
+        *,
+        user_id: uuid.UUID,
+        request: SimulationRequest,
+        bypass_rate_limit: bool = False,
+    ) -> Job:
+        """simulate ジョブを作成して arq に投入する。`enqueue` と同じ流れで、
+        レート制限だけ別枠、実行は `simulate_job`(`app/worker.py`)に委ねる。
+        Validation は base problem だけ(各シナリオの検証は実行時に run_simulation が行う)。"""
+        return await self._submit(
+            function="simulate_job",
+            limiter=self._simulate_rate_limiter,
+            user_id=user_id,
+            request=request,
+            bypass_rate_limit=bypass_rate_limit,
+        )
+
+    async def get_status(self, job_id: uuid.UUID) -> Job | None:
+        """ジョブの現在の行を返す(見つからなければ None)。所有者は見ない。"""
+        return await self._jobs.get_by_id(job_id)
+
+    async def get_for_user(
+        self, job_id: uuid.UUID, *, user_id: uuid.UUID, is_superuser: bool = False
+    ) -> Job:
+        """所有者スコープ付きでジョブを返す。他人のジョブ・存在しないジョブは区別せず
+        NotFoundError(404)にして、id の存在有無を漏らさない(`OptimizationReadService` と同じ方針)。
+        superuser は他人のジョブも読める。"""
+        job = await self._jobs.get_by_id(job_id)
+        if job is None or (job.user_id != user_id and not is_superuser):
+            raise NotFoundError(f"job {job_id} not found")
+        return job
+
+    async def _submit(
+        self,
+        *,
+        function: str,
+        limiter: RateLimiter,
+        user_id: uuid.UUID,
+        request: SolveRequest | SimulationRequest,
+        bypass_rate_limit: bool,
+    ) -> Job:
+        """`enqueue` / `enqueue_simulation` の共通本体(function = arq に登録した関数名)。"""
         # (a) レート制限
         if not bypass_rate_limit:
-            await self._rate_limiter.enforce(str(user_id))
+            await limiter.enforce(str(user_id))
 
         # (b) Validation(NG なら ProblemValidationError / InfeasibleProblemError が飛ぶ ──
         #     ジョブを作る前に弾くので、キューに積んでからワーカーが失敗する無駄を避けられる)
@@ -92,45 +148,22 @@ class JobService:
         #     (副作用として arq の一意性保証も効き、同じ Job.id での二重投入を防げる)。
         #     プールはここで作って使い終えたら閉じる(教材としての単純さ優先 ── 本番では
         #     プロセス起動時に1度だけ作って使い回す最適化の余地がある)。
-        pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
         try:
-            await pool.enqueue_job("solve_job", str(job.id), _job_id=str(job.id))
-        finally:
-            await pool.aclose()
-
-        return job
-
-    async def get_status(self, job_id: uuid.UUID) -> Job | None:
-        """ジョブの現在の行を返す(見つからなければ None)。"""
-        return await self._jobs.get_by_id(job_id)
-
-
-    async def enqueue_simulation(
-        self,
-        *,
-        user_id: uuid.UUID,
-        request: SimulationRequest,
-        bypass_rate_limit: bool = False,
-    ) -> Job:
-        """simulate ジョブを作成して arq に投入する。`enqueue` と同型 ──
-        レート制限だけ別枠、実行は `simulate_job`(`app/worker.py`)に委ねる。"""
-        if not bypass_rate_limit:
-            await self._simulate_rate_limiter.enforce(str(user_id))
-
-        # base problem だけ Validation(各シナリオの検証は実行時に run_simulation が行う)
-        self._validation.validate(request.problem)
-
-        job = await self._jobs.create(
-            user_id=user_id,
-            problem_type=request.problem.problem_type,
-            payload={"request": request.model_dump(mode="json"), "result": None, "error": None},
-        )
-        await self._session.commit()
-
-        pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
-        try:
-            await pool.enqueue_job("simulate_job", str(job.id), _job_id=str(job.id))
-        finally:
-            await pool.aclose()
+            pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+            try:
+                await pool.enqueue_job(function, str(job.id), _job_id=str(job.id))
+            finally:
+                await pool.aclose()
+        except Exception:
+            # (c) で commit 済みなので、何もしないと誰も処理しない queued 行が残り続ける。
+            # failed に倒して(利用者向けの固定メッセージ。詳細はログ)から元の例外を伝播する。
+            logger.exception("failed to enqueue %s for job %s", function, job.id)
+            await self._jobs.update_status(
+                job.id,
+                status="failed",
+                payload={**job.payload, "error": "failed to enqueue job"},
+            )
+            await self._session.commit()
+            raise
 
         return job

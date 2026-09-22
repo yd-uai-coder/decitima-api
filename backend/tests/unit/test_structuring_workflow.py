@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 11
 """作業単位 11-6: `build_structuring_workflow`(複数ノードの合成、初めての end-to-end)。
 
 テスト対象 / ドライバ / スタブ:

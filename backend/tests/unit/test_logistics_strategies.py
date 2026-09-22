@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """作業単位 9-7: registry / select_strategy / end-to-end + 5 strategy の比較(quality_ratio)。
 
 knapsack_dp(9-3)/ greedy・brute_force(9-4)/ branch_and_bound(9-5)/ pulp_milp(9-6)の

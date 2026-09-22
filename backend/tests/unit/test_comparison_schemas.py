@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 14
 """作業単位 14-5: `app/schemas/comparison.py` の型定義の確認(純粋、スタブ不要)。
 
 対象が純粋(副作用なし・外部依存を呼ばない)なので、SUT を素の pytest で直接検証するだけで

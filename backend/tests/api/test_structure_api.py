@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 11
 """作業単位 11-7: `POST /api/v1/structure` の契約。
 
 Structuring ワークフロー自体(LLM 呼び出し・ノード合成)は 11-3〜11-6 の unit テストで、

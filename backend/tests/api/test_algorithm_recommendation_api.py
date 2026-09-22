@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 12
 """作業単位 12-3: `POST /api/v1/algorithms/recommend` の契約。
 
 サービス層の振る舞い(rule/LLM のマージ・grounding・レート制限)は

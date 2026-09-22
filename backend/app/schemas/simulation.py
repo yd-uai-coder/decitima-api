@@ -49,7 +49,8 @@ class SimulationRequest(BaseModel):
     # algorithm: None なら base problem に対して自動選択し、その名前を全シナリオに固定する
     # (条件だけを変え、アルゴリズム選択の揺れを比較に混ぜないため)
     algorithm: str | None = None
-    scenarios: list[ScenarioOverride] = Field(min_length=1)
+    # 上限 20: シナリオごとに solve を 1 回ずつ直列に走らせるため、件数がそのまま計算量になる
+    scenarios: list[ScenarioOverride] = Field(min_length=1, max_length=20)
     sensitivity: SensitivitySpec | None = None
     timeout_seconds: float | None = Field(default=None, gt=0)
 

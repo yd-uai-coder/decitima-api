@@ -1,4 +1,3 @@
-# DeciTima samples │ 作業単位 15-6
 """`SolutionExplanationService` の Redis キャッシュ(Phase 15-6)。
 
 テスト対象 / ドライバ / スタブ:
@@ -118,3 +117,25 @@ async def test_cache_hit_still_enforces_owner_scope(db_session: AsyncSession, mo
 
     with pytest.raises(NotFoundError):
         await service.explain(solution_id, user_id=other.id, bypass_rate_limit=True)
+
+
+async def test_cache_hit_does_not_consume_rate_limit(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """キャッシュヒット(LLM を呼ばない応答)ではレート制限を消費しない(診断書 §5-4)。"""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "EXPLAIN_RATE_LIMIT_PER_HOUR", 1)
+    user = await _make_user(db_session)
+    solution_id = await _seed_solution(db_session, user.id)
+    monkeypatch.setattr(
+        explanation,
+        "get_gemini_llm",
+        lambda **_: FakeLLM(structured_sequence=[_EXPLANATION]),
+    )
+    service = SolutionExplanationService(db_session, cast(Redis, FakeRedis()))
+
+    await service.explain(solution_id, user_id=user.id)  # 1 回目: LLM を呼ぶ(枠 1/時 を消費)
+    # 2〜4 回目: キャッシュヒット。枠が尽きていても通る
+    for _ in range(3):
+        await service.explain(solution_id, user_id=user.id)

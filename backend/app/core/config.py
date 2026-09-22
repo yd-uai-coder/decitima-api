@@ -1,6 +1,11 @@
 from functools import lru_cache
+from typing import Literal, Self
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 本番で許す JWT 秘密鍵の最小長(HS256 の鍵として 256 bit = 32 バイト以上が目安)
+_JWT_SECRET_MIN_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -80,6 +85,26 @@ class Settings(BaseSettings):
     COMPARE_RATE_LIMIT_PER_HOUR: int = 10
     COMPARE_RATE_LIMIT_PER_DAY: int = 50
 
+    # 重い純粋計算(strategy.solve 等)の実行方式。
+    #   "thread": 既定。タイムアウトしても計算スレッドは止まらない(GIL・CPU を占有し続ける)。
+    #   "process": 使い捨ての子プロセス(forkserver)。タイムアウト・キャンセルで kill され、
+    #              CPU が解放され、複数の solve が真に並列に走る。呼び出しごとに約 50ms かかる。
+    # テストは偽の strategy を monkeypatch しており子プロセスには伝わらないため既定は thread。
+    # 本番で有効にする手順と実測は `textbook/appendix/project-diagnosis.md` §3-5。
+    SOLVE_ISOLATION: Literal["thread", "process"] = "thread"
+    # "process" のときの同時に走らせる子プロセス数の上限(VPS の実コア数に合わせる)
+    SOLVE_MAX_PROCESSES: int = 4
+
+    # リクエストボディの上限(バイト)。問題定義は数百 KB あれば足りる(Phase 15-1 の性能テストの
+    # 最大規模でも 1MB 未満)。nginx の client_max_body_size と同じ値に揃える。
+    MAX_REQUEST_BODY_BYTES: int = 2_000_000
+
+    # 認証エンドポイントのレート制限(総当たり・大量登録の対策。単位時間あたりの上限回数)。
+    # IP 単位は NAT 配下の複数人が巻き込まれ得るため、メール単位より緩くする。
+    LOGIN_RATE_LIMIT_PER_IP_PER_HOUR: int = 30
+    LOGIN_RATE_LIMIT_PER_EMAIL_PER_HOUR: int = 20
+    REGISTER_RATE_LIMIT_PER_IP_PER_HOUR: int = 10
+
     # arq ワーカーの同時実行ジョブ数(WorkerSettings.max_jobs)。
     # solve_job は CPU バウンドな solve() を GIL 下で実行するため、同時実行数を増やしても
     # 真の並列化はされない(実測は `Phase-15-5.md`)。arq 既定の 10 は I/O バウンドな
@@ -93,7 +118,31 @@ class Settings(BaseSettings):
     # .env にも書かず E2E 実行時だけ環境変数で渡す)。
     E2E_TESTING: bool = False
 
-    
+    @model_validator(mode="after")
+    def _reject_unsafe_production_settings(self) -> Self:
+        """`ENVIRONMENT=production` で起動してはいけない設定を、起動時(設定の読み込み時)に弾く。
+        設定ミスは「動くが危険」な状態になりやすい(E2E フェイクが本番で有効になっても
+        利用者には正常な応答に見える)ため、実行時でなく起動時に落とす。"""
+        if self.ENVIRONMENT != "production":
+            return self
+        problems: list[str] = []
+        if self.E2E_TESTING:
+            problems.append("E2E_TESTING=true(LLM が固定応答のフェイクになる)")
+        if self.DEBUG:
+            problems.append("DEBUG=true(SQL のログ出力などで機密が漏れる)")
+        secret = self.JWT_SECRET_KEY
+        if len(secret) < _JWT_SECRET_MIN_LENGTH or secret.lower().startswith("change-me"):
+            problems.append(
+                f"JWT_SECRET_KEY が短い(<{_JWT_SECRET_MIN_LENGTH} 文字)か、"
+                ".env.example のプレースホルダのまま"
+            )
+        if problems:
+            raise ValueError(
+                "本番(ENVIRONMENT=production)で許されない設定: " + " / ".join(problems)
+            )
+        return self
+
+
 @lru_cache
 def get_settings() -> Settings:
     """Settingsインスタンスを生成する。lru_cacheによりプロセス内では1回だけ生成される。"""

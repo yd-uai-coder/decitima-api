@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-1: Floyd-Warshall プリミティブ。
 
 テスト対象 / ドライバ / スタブ:

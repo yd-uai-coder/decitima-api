@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 14
 """compare API の契約 + LLM ナレーションの契約。
 
 6評価軸(制約遵守率・最適性・再現性・実行時間・

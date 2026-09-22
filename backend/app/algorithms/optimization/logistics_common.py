@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """Logistics strategy 共通の足回り(`travel_common.py` / `project_common.py` と同型)。
 
 LogisticsData / LogisticsSolutionを受け、Floyd-Warshallで全点対距離を

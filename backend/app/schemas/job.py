@@ -15,11 +15,15 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
 from app.domain.solutions.solution import CandidateSolution
 from app.schemas.simulation import SimulationResult
+
+if TYPE_CHECKING:
+    from app.models.job import Job
 
 type JobResult = CandidateSolution | SimulationResult
 
@@ -43,3 +47,20 @@ class JobStatusResponse(BaseModel):
     error: str | None = None  # failed のときだけ入る
     created_at: datetime
     updated_at: datetime
+
+    @classmethod
+    def from_job(cls, job: Job) -> JobStatusResponse:
+        """Job 行(検索キー = カラム、結果類 = payload)からレスポンスを組み立てる。
+        payload のキー名(result / problem_id / solution_id / error)の知識はここに集約する。"""
+        payload = job.payload
+        return cls(
+            job_id=job.id,
+            problem_type=job.problem_type,
+            status=job.status,
+            result=payload.get("result"),
+            problem_id=payload.get("problem_id"),
+            solution_id=payload.get("solution_id"),
+            error=payload.get("error"),
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )

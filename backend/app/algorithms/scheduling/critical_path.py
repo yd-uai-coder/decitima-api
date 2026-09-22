@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 8
 """作業単位 Critical Path Method(CPM)── プリミティブ。registry には載らない。
 
 依存 DAG と各タスクの所要時間から:

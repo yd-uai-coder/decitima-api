@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """作業単位 9-4: GreedyLogisticsStrategy(常に valid)+ BruteForceLogisticsStrategy(正解オラクル)。
 
 テスト対象 / ドライバ / スタブ:

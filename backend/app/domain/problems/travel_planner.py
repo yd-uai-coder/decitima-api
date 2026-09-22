@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-3: Travel Planner の問題固有データ(葉モジュール)。設計は README §12.3 / §19 Phase 7。
 
 旅行プラン = 訪問候補地(place)から予算・時間内で好み加重の効用が最大になる部分集合を選び、

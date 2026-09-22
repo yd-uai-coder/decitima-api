@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 13
 """作業単位 13-2: `SolutionExplanationService`。
 
 テスト対象 / ドライバ / スタブ:
@@ -126,11 +125,13 @@ async def test_explain_enforces_its_own_rate_limit(
             improvement_notes="x",
         ),
     )
+    # キャッシュに当たらない別の解で 2 回呼ぶ(同じ解の 2 回目はキャッシュヒットで枠を消費しない)
+    other_solution_id = await _seed_solution(db_session, user.id)
     service = _service(db_session)
 
     await service.explain(solution_id, user_id=user.id)
     with pytest.raises(RateLimitExceededError):
-        await service.explain(solution_id, user_id=user.id)
+        await service.explain(other_solution_id, user_id=user.id)
 
 
 async def test_explain_bypasses_rate_limit_when_requested(

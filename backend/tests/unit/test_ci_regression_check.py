@@ -1,4 +1,3 @@
-# DeciTima samples │ 作業単位 15-10
 """`scripts/ci_regression_check.py` の単体テスト。
 
 対象: `_measure_one`(実測1件分の組み立て)/ `_TARGETS`(対象一覧)/

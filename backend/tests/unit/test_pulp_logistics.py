@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """作業単位 9-6: PulpMilpLogisticsStrategy(使用台数最小化のビンパッキング MILP)。
 
 テスト対象 / ドライバ / スタブ:

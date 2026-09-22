@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-4: travel_common(build_leg_adjacency → 全点対 → 巡回順 → 検算)+ DP strategy 配線。
 
 テスト対象 / ドライバ / スタブ:

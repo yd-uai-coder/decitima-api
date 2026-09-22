@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,15 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 type SessionDep = Annotated[AsyncSession, Depends(get_db)]
 type RedisDep = Annotated[Redis, Depends(get_redis)]
+
+
+def get_client_ip(request: Request) -> str:
+    """接続元 IP(認証前エンドポイントのレート制限キー)。nginx 配下では uvicorn の
+    `--proxy-headers` により X-Forwarded-For の値が入る(Dockerfile の runtime CMD を参照)。"""
+    return request.client.host if request.client else "unknown"
+
+
+type ClientIpDep = Annotated[str, Depends(get_client_ip)]
 
 _credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,

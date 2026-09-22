@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 9 │ 改訂 Phase 15
 """作業単位 9-8: app/worker.py::solve_job(arq ワーカー本体)。Phase 15-5 で max_jobs のテストを追加。
 
 テスト対象 / ドライバ / スタブ:
@@ -111,3 +110,85 @@ def test_worker_settings_max_jobs_reads_from_config() -> None:
     from app.worker import WorkerSettings
 
     assert WorkerSettings.max_jobs == settings.WORKER_MAX_JOBS
+
+
+async def test_simulate_job_marks_succeeded_and_stores_result(ctx: dict[str, Any]) -> None:
+    """`_run_job` の共通化(solve_job / simulate_job)後も simulate の書き戻しが変わらないこと。
+    `SimulationRequest` の Job を作り、`simulate_job` が result だけをマージして
+    succeeded にする。"""
+    from tests.fixtures.optimization import build_project_problem
+
+    from app.schemas.simulation import ScenarioOverride, SimulationRequest
+    from app.worker import simulate_job
+
+    request = SimulationRequest(
+        problem=build_project_problem(),
+        scenarios=[ScenarioOverride(label="tighter", overrides={"data": {"resource_capacity": 1}})],
+    )
+    async with ctx["session_factory"]() as session:
+        user = User(email=f"{uuid.uuid4()}@example.com", hashed_password="x")
+        session.add(user)
+        await session.flush()
+        job = await JobRepository(session).create(
+            user_id=user.id,
+            problem_type=request.problem.problem_type,
+            payload={"request": request.model_dump(mode="json"), "result": None, "error": None},
+        )
+        await session.commit()
+        job_id = job.id
+
+    await simulate_job(ctx, str(job_id))
+
+    async with ctx["session_factory"]() as session:
+        row = await JobRepository(session).get_by_id(job_id)
+        assert row is not None
+        assert row.status == "succeeded"
+        assert [s["label"] for s in row.payload["result"]["scenarios"]] == ["tighter"]
+        assert row.payload["error"] is None
+
+
+async def test_run_job_hides_internal_error_details_but_keeps_app_error_messages(
+    ctx: dict[str, Any],
+) -> None:
+    """AppError(利用者向けの文言)はそのまま、想定外の例外は固定文言にして内部事情を返さない。"""
+    from app.services.errors import NoAlgorithmError
+    from app.worker import _run_job
+
+    async def unexpected(_session: Any, _job: Any) -> dict[str, Any]:
+        raise RuntimeError("SELECT secret FROM internal_table failed at /srv/app/x.py")
+
+    async def expected(_session: Any, _job: Any) -> dict[str, Any]:
+        raise NoAlgorithmError("no algorithm for x")
+
+    job_a = await _make_job(ctx, problem=build_route_problem())
+    job_b = await _make_job(ctx, problem=build_route_problem())
+    await _run_job(ctx, str(job_a), unexpected)
+    await _run_job(ctx, str(job_b), expected)
+
+    async with ctx["session_factory"]() as session:
+        a = await JobRepository(session).get_by_id(job_a)
+        b = await JobRepository(session).get_by_id(job_b)
+        assert a is not None and b is not None
+        assert a.payload["error"] == "internal error"
+        assert b.payload["error"] == "no algorithm for x"
+
+
+async def test_run_job_recovers_when_runner_breaks_the_session(ctx: dict[str, Any]) -> None:
+    """runner が DB エラー(主キー重複の flush)でセッションを「要 rollback」にしても、
+    rollback してから failed を記録できる ── Job が running のまま固着しない(診断書 §5-2)。"""
+    from app.worker import _run_job
+
+    job_id = await _make_job(ctx, problem=build_route_problem())
+
+    async def breaks_session(session: Any, job: Any) -> dict[str, Any]:
+        session.add(User(id=job.user_id, email="dup@example.com", hashed_password="x"))
+        await session.flush()  # 既存ユーザーと主キー衝突 -> IntegrityError
+        return {}
+
+    await _run_job(ctx, str(job_id), breaks_session)
+
+    async with ctx["session_factory"]() as session:
+        row = await JobRepository(session).get_by_id(job_id)
+        assert row is not None
+        assert row.status == "failed"
+        assert row.payload["error"] == "internal error"

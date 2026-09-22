@@ -17,7 +17,6 @@ solve と同じく Validation を通す(実際に解くため)。verify と違�
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 from dataclasses import dataclass
 from functools import partial
@@ -31,8 +30,10 @@ from app.domain.problems.problem import OptimizationProblem
 from app.repositories.optimization import BenchmarkRunRepository
 from app.schemas.optimization import BenchmarkEntry, BenchmarkRequest
 from app.services.errors import NoAlgorithmError, SolveTimeoutError
+from app.services.isolation import run_isolated
 from app.services.measurement import measure_call
 from app.services.rate_limit import RateLimit, RateLimiter
+from app.services.timeouts import effective_timeout
 from app.services.validation import ProblemValidationService
 from app.services.verification import SolutionVerificationService
 
@@ -84,14 +85,16 @@ class BenchmarkService:
                 f"no algorithm to benchmark for problem_type={problem.problem_type!r}"
             )
 
-        timeout = request.timeout_seconds or settings.SOLVE_TIMEOUT_SECONDS
+        timeout = effective_timeout(request.timeout_seconds)
         entries: list[BenchmarkEntry] = []
         for strategy in strategies:
             # (d) 計測 ── 同期の measure ループをスレッドに逃がして 1 run あたり timeout を監視
             try:
-                solution, measurement = await asyncio.wait_for(
-                    asyncio.to_thread(measure_call, partial(strategy.solve, problem), request.runs),
-                    timeout,
+                solution, measurement = await run_isolated(
+                    measure_call,
+                    partial(strategy.solve, problem),
+                    request.runs,
+                    timeout_seconds=timeout,
                 )
             except TimeoutError as exc:
                 raise SolveTimeoutError(

@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """作業単位 9-1: logistics_planning の配線(schema union / semantic / structure / 到達可能性ゲート)。
 
 テスト対象 / ドライバ / スタブ:

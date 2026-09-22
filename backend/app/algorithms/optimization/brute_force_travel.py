@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """BruteForceTravelStrategy。
 
 place の部分集合を全列挙する厳密解(小規模専用の正解オラクル)。

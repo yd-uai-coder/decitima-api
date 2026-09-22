@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 3
 """作業単位 3-8: analysis.benchmark_report。
 
 対象 = `by_algorithm` / `input_size_curve` / `regression`(DataFrame → DataFrame の純粋関数)。

@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 10
 """作業単位 10-4: POST /api/v1/simulate の契約。
 
 結果のポーリングは既存の GET /api/v1/jobs/{id}(Phase 9-8)を再利用する設計(進行のルール

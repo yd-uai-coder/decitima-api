@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 13
 """作業単位 13-1: `app.schemas.explanation` のスキーマ検証。
 
 テスト対象 / ドライバ / スタブ:

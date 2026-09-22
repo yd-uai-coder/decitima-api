@@ -1,11 +1,12 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginRequest(BaseModel):
     """ログインAPIのリクエストボディ。"""
 
     email: EmailStr
-    password: str
+    # 上限だけ課す(既存ユーザーの短いパスワードで入れなくならないよう下限は課さない)
+    password: str = Field(max_length=128)
 
 
 class TokenPair(BaseModel):

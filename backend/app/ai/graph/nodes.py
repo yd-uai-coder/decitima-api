@@ -1,13 +1,6 @@
 """Structuring ワークフローの各ノード。"""
 from __future__ import annotations
 
-from langchain_core.messages import HumanMessage
-
-from app.ai.graph.state import GraphState
-from app.ai.llm.gemini import get_gemini_llm
-
-
-
 from typing import cast
 
 from langchain_core.messages import HumanMessage
@@ -17,10 +10,10 @@ from app.ai.graph.state import GraphState
 from app.ai.llm.gemini import get_gemini_llm
 from app.domain.problems.base_problems import get_base_problem
 from app.domain.problems.problem import OptimizationProblem
-from app.schemas.structuring import ProblemTypeClassification, ObjectivesConstraintsExtraction
+from app.schemas.structuring import ObjectivesConstraintsExtraction, ProblemTypeClassification
 from app.services.errors import ProblemValidationError
 from app.services.simulation import apply_overrides
-from app.services.structuring import (
+from app.services.structuring_support import (
     EXTRACTORS,
     build_overrides,
     catalog_entries,
@@ -28,7 +21,6 @@ from app.services.structuring import (
     ground_references,
 )
 from app.services.validation import ProblemValidationService
-
 
 # problem_type ごとの短い説明。分類プロンプトに埋め込む(ドメイン知識を1箇所に集約)。
 _PROBLEM_TYPE_DESCRIPTIONS: dict[str, str] = {
@@ -68,7 +60,7 @@ def load_base_problem(state: GraphState) -> dict:
 def _objectives_prompt(text: str, base_problem: OptimizationProblem) -> str:
     """objectives/constraints 抽出用プロンプトを組み立てる。base_problem のカタログを
     (id, name)で埋め込み、「制約で要素を参照するときは必ず id を使う」ことを徹底させる
-    (grounding の第一防衛線。最後の砦は services/structuring.py::ground_references)。"""
+    (grounding の第一防衛線。最後の砦は services/structuring_support.py::ground_references)。"""
     catalog_lines = "\n".join(
         f"- {id_}" + (f": {name}" if name else "") for id_, name in catalog_entries(base_problem)
     )

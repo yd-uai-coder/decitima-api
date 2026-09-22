@@ -21,7 +21,7 @@ class SolveRequest(BaseModel):
     problem: OptimizationProblem  # domain のモデルをそのまま受ける
     algorithm: str | None = None  # 指定なければ rule-based 選択
     persist: bool = True  # False なら結果を保存しない(教材の試行用)
-    timeout_seconds: float | None = Field(default=None, gt=0)  # 上限は settings で制限
+    timeout_seconds: float | None = Field(default=None, gt=0)  # 上限は services/timeouts.py が settings.SOLVE_TIMEOUT_SECONDS で頭打ちにする
 
 
 class SolveResponse(BaseModel):

@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 14(14-2)
 """network_design 用 LLM Only 戦略。設計・失敗時の方針は `route_llm.py` と同じ"""
 
 from __future__ import annotations

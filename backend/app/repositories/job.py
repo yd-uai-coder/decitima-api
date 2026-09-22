@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """Job のリポジトリ。
 既存 `CRUDRepository[ModelType]` を継承し、固有クエリだけ足す。flush() はするが
 commit() はしない(トランザクション境界はサービス層)。

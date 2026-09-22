@@ -38,7 +38,7 @@ class ProblemValidationService:
         到達不能は InfeasibleProblemError を送出する。"""
 
         # SEMANTIC_CHECKSからproblem_typeをキーにcheckに関数を格納するループ
-        #   -> checkという変数に関数が入っているため引数(problem)で関数が実行される
+        #   -> 変数checkに関数が入っているため引数(problem)で関数が実行される
         #       -> 結果をissues配列に格納する。
         issues = [
             issue
@@ -46,22 +46,24 @@ class ProblemValidationService:
             for issue in check(problem)
         ]
 
-        # 整合性の欠陥が1件でもあれば、そちらを優先して弾く(到達可能性の判定は
-        # 端点が実在してこそ意味を持つため)
+        # SEMANTIC_CHECKSはィールドを見るだけで判定できる整合性の欠陥
+        # 整合性の欠陥が1件でもあれば、
+        # そちらを優先して弾く(到達可能性の判定は端点が実在してこそ意味を持つため)
         integrity = [i.message for i in issues if not i.infeasible]
         if integrity:
             raise ProblemValidationError("; ".join(integrity))
 
         infeasible = [i.message for i in issues if i.infeasible]
-            # 到達可能性は「計算」── route_reachable(algorithms)に任せ、ここは判定だけ
 
+        # problem.constraintsがForbiddenConstraintならitemのセットを作る
         forbidden = {
             item
             for c in problem.constraints
             if isinstance(c, ForbiddenConstraint)
             for item in c.items
         }
-        
+
+        # ここからは グラフ探索を走らせないと判定できない不整合確認
         # route: goal が start から到達可能か ── 「計算」なので route_reachable(algorithms)に任せる
         if isinstance(problem.data, RouteData):
             if not route_reachable(problem.data, forbidden):

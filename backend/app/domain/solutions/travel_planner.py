@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-3: Travel Planner の解(葉モジュール)。設計は README §12.3 / §19 Phase 7。
 
 旅行プラン = 「訪れる place の集合」+「巡回順」+ 予実の合計値。

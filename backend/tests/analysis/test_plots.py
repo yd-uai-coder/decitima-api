@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 3
 """作業単位 3-8: analysis.plots(スモークテスト)。
 
 対象 = `plot_comparison` / `plot_input_size_curve`。「Figure を返す」ことだけ確認する

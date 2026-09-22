@@ -2,7 +2,7 @@
 
 自然言語から LLM が直接埋めてよいのは「problem_type 分類」「objectives / constraints」
 「data のトップレベル・スカラー/辞書フィールド」までで、ノード/エッジ/タスクのような
-カタログ(list)フィールドはシード問題(app/domain/problems/seeds.py)から引き継ぐ
+カタログ(list)フィールドはベース問題(app/domain/problems/base_problems.py)から引き継ぐ
 (README「LLM 出力は常に信頼しない」── カタログをでっち上げさせない設計)。
 
 *DataPatch は対応する Data クラス(RouteData 等)のトップレベル・スカラーだけを Optional で
@@ -124,7 +124,8 @@ class LogisticsDataPatch(BaseModel):
 class StructuringRequest(BaseModel):
     """POST /api/v1/structure のリクエストボディ。"""
 
-    text: str
+    # 上限は LLM に渡る入力(トークン課金・プロンプト注入の面積)を抑えるため。自然言語 1〜数文が想定
+    text: str = Field(min_length=1, max_length=2000)
     conversation_id: uuid.UUID | None = None
 
 

@@ -1,4 +1,3 @@
-# DeciTima samples │ 作業単位 15-1
 """大規模入力ジェネレータ ── Phase 15 の性能テスト専用。
 
 既存 `tests/fixtures/optimization.py::build_scaled_*` で作れる形状は再利用する(ここには

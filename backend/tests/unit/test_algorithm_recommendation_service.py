@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 12
 """作業単位 12-2: `AlgorithmRecommendationService`。
 
 テスト対象 / ドライバ / スタブ:

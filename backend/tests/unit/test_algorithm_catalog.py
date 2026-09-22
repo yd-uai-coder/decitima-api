@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 13
 """作業単位 13-1: `app.domain.problems.algorithm_catalog`。
 
 テスト対象 / ドライバ / スタブ:

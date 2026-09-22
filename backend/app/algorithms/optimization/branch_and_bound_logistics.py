@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """BranchAndBoundLogisticsStrategy(分枝限定法)── 確定距離を下界に、
 配送先→車両の割当を DFS + 分枝限定で探索する。
 

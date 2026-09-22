@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 9
 """作業単位 9-3: KnapsackDpLogisticsStrategy(容量だけを見て詰める上界)。
 
 テスト対象 / ドライバ / スタブ:

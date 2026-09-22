@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-6: Travel Planner の分析(DataFrame → DataFrame の純粋関数)。
 
 Phase 3-8 で作った `analysis/` に Phase 7 が足す 1 モジュール(移設・作り直しはしない)。

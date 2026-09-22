@@ -1,11 +1,11 @@
 """Algorithm Recommendation サービス。
 
-README §9 の3段階セレクション(Step1 ルールベース / Step2 LLM推薦 / Step3 ベンチマークベース)
+README §9 の2段階セレクション(Step1 ルールベース / Step2 LLM推薦)
 の Step2 にあたる。**最終決定は呼び出し側に委ねる**(LLM 単独では決めない) ── このサービスは
 候補と理由を提示するだけで、既存の `/solve` の既定選択(`select_strategy`)には一切影響しない
 (第二の消費者として無変更で再利用するだけ)。
 
-`_ALGORITHM_DESCRIPTIONS` は `app.services.structuring._PROBLEM_TYPE_DESCRIPTIONS` と同型の
+`_ALGORITHM_DESCRIPTIONS` は `app.ai.graph.nodes._PROBLEM_TYPE_DESCRIPTIONS` と同型の
 静的テーブル。`meta.name` は problem_type をまたいで重複する(例: "greedy" は shift/travel/
 logistics の3つの別実装が持つ、"brute_force" は route/travel/logistics で3つ)ため、
 キーは `(problem_type, name)` のタプルにする。
@@ -70,7 +70,7 @@ def _recommend_prompt(
 ) -> str:
     """LLM 推薦用プロンプトを組み立てる。候補は id ではなく meta.name で参照させる
     (grounding は `recommend()` 側で ranked_names/comments の name を照合して行う ──
-    `app.services.structuring._data_prompt` と同じ「使ってよい id/名前の一覧を渡す」形)。"""
+    `app.ai.graph.nodes._data_prompt` と同じ「使ってよい id/名前の一覧を渡す」形)。"""
     lines = "\n".join(
         f"- {s.meta.name}: {describe_algorithm(problem.problem_type, s.meta.name)}"
         f"(計算量: {s.meta.time_complexity or '不明'})"

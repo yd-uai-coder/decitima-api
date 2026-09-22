@@ -1,4 +1,3 @@
-# DeciTima samples │ 作業単位 15-1
 """`tests/performance/generators.py` の単体テスト。
 
 対象: `linear_chain_successors`。ドライバ: このテスト関数。

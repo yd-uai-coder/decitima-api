@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 10
 """Simulation の分析(DataFrame → DataFrame の純粋関数)。
 
 succeeded の simulate ジョブ(`jobs` テーブル、Phase 9-8/10-4)の JSONL を読み、

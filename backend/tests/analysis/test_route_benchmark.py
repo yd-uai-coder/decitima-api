@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 4
 """作業単位 4-8: analysis/route_benchmark.py(分析トラック)。
 
 対象 = DataFrame → DataFrame の純粋関数。ドライバ = このテスト関数。スタブ不要

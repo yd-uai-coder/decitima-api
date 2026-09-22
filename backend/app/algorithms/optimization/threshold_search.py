@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 10
 """二分探索の応用 ──「値を探す」から「答えを探す」へ。
 
 binary_search(`app/algorithms/search/binary_search.py`)は、ソート済みの列から

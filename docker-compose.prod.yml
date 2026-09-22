@@ -34,8 +34,32 @@ services:
     build:
       context: ./backend
       target: runtime
-    image: fastapi-langchain-backend:latest
+    image: decitima-api-backend:latest
     restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DEBUG: "false"
+      ENVIRONMENT: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # arq ワーカー。POST /jobs / POST /simulate はジョブを受理して queued にするだけで、
+  # 実際の処理はこのサービスが行う。無いとジョブが永久に queued のまま無応答になる。
+  # runtime イメージは .venv を PATH に持つので `uv run` を介さず arq を直接起動する
+  # (非 root ユーザーでの再同期・ネットワークアクセスを避ける)。
+  worker:
+    build:
+      context: ./backend
+      target: runtime
+    image: decitima-api-backend:latest
+    restart: unless-stopped
+    command: ["arq", "app.worker.WorkerSettings"]
     env_file:
       - .env
     environment:

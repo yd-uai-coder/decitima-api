@@ -1,4 +1,3 @@
-# DeciTima samples │ 作業単位 15-1
 """性能テスト共通のフィクスチャ。"""
 
 from collections.abc import Callable

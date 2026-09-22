@@ -10,6 +10,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    dummy_password_hash,
     verify_password,
 )
 from app.models.user import User
@@ -32,10 +33,12 @@ class AuthService:
     async def authenticate(self, *, email: str, password: str) -> User:
         """メールアドレスとパスワードを検証し、一致すればUserを返す。"""
         user = await self._users.get_by_email(email)
-        if user is None or not verify_password(password, user.hashed_password):
+        # ユーザー不在でもダミーハッシュに対して検証し、応答時間の差でメールの存在を推測させない
+        hashed = user.hashed_password if user is not None else dummy_password_hash()
+        password_ok = verify_password(password, hashed)
+        # 「不在 / パスワード不一致 / 無効化済み」を同じ文言にして、どれかを区別させない
+        if user is None or not password_ok or not user.is_active:
             raise InvalidCredentialsError("Invalid email or password")
-        if not user.is_active:
-            raise InvalidCredentialsError("User is inactive")
         return user
 
     async def issue_tokens(self, user: User) -> tuple[str, str]:
@@ -62,6 +65,11 @@ class AuthService:
         jti = claims["jti"]
         if not await self._is_refresh_token_valid(user_id=user_id, jti=jti):
             raise InvalidTokenError("Refresh token has been revoked or expired")
+
+        # 無効化・削除されたユーザーには、有効なリフレッシュトークンを持っていても再発行しない
+        user = await self._users.get_by_id(uuid.UUID(user_id))
+        if user is None or not user.is_active:
+            raise InvalidTokenError("User is inactive or no longer exists")
 
         return create_access_token(user_id)
 

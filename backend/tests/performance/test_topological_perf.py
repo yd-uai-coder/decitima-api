@@ -1,4 +1,3 @@
-# DeciTima samples │ 作業単位 15-3
 """`topological_sort`(Kahn法)の大規模入力テスト。
 
 対象: `app.algorithms.graph.topological.topological_sort`。ドライバ: このテスト関数 +

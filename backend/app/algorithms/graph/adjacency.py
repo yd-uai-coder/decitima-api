@@ -25,7 +25,7 @@ def build_adjacency(data: RouteData, forbidden_edge_ids: set[str]) -> Adjacency:
     """RouteData から重み付き隣接リストを作る。forbidden のエッジは張らない。"""
     adjacency: Adjacency = {node.id: [] for node in data.nodes}
     for edge in data.edges:
-        if edge.id in forbidden_edge_ids:
+        if edge.id in forbidden_edge_ids: # エッジ内に禁止区間が含まれる場合はスキップ
             continue
         adjacency.setdefault(edge.source, []).append((edge.target, edge.id, edge.weight))
         if not edge.directed:

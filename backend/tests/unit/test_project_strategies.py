@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 8
 """作業単位 8-6: registry / select / cpm_nx オラクル / end-to-end。
 
 cpm / priority_list の solve テストは 8-4(`test_cpm_strategy.py`)、cp_sat は 8-5。

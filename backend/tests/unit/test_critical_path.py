@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 8
 """作業単位 8-2: Critical Path Method(CPM)プリミティブ。
 
 テスト対象 / ドライバ / スタブ:

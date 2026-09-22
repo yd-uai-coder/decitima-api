@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-5: Greedy / BruteForce オラクル / registry / select / end-to-end。
 
 訪問順(`build_leg_adjacency` / `all_pairs` / `order_and_cost` / `tour_cost`)と DP strategy の

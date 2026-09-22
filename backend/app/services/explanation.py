@@ -1,4 +1,3 @@
-# DeciTima samples │ 初出 Phase 13
 """Result Explanation サービス。
 
 Result Explanationの実装。永続化済みの `Solution`(`produced_by` +
@@ -124,17 +123,19 @@ class SolutionExplanationService:
         user_id: uuid.UUID,
         bypass_rate_limit: bool = False,
     ) -> ExplanationResponse:
-        # bypass_rate_limit: superuser はレート制限を受けない(既存 solve/recommend と同じ方針)
-        if not bypass_rate_limit:
-            await self._rate_limiter.enforce(str(user_id))
-
-        # get_solution/get_problem: 所有者スコープ付き読み取り(他ユーザーの解は 404)
+        # get_solution/get_problem: 所有者スコープ付き読み取り(他ユーザーの解は 404)。
+        # キャッシュ参照より必ず先 ── 他人のキャッシュを返さないため。
         solution_row = await self._read.get_solution(solution_id, user_id=user_id)
 
         cache_key = _explanation_cache_key(solution_id)
         cached = await self._redis.get(cache_key)
         if cached is not None:
             return ExplanationResponse.model_validate_json(cached)
+
+        # レート制限が守るのは Gemini への実コストがある呼び出し。キャッシュヒットは消費しない
+        # (LLM を呼ばない応答で利用枠を減らさない)。bypass_rate_limit: superuser は制限なし。
+        if not bypass_rate_limit:
+            await self._rate_limiter.enforce(str(user_id))
 
         problem_row = await self._read.get_problem(solution_row.problem_id, user_id=user_id)
         candidate = CandidateSolution.model_validate(solution_row.payload)

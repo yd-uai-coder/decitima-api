@@ -1,5 +1,4 @@
-# DeciTima samples │ Phase 9
-"""作業単位 9-8: jobs API ── 重い solve をジョブキュー(arq)経由で非同期実行する。
+"""jobs API ── 重い solve をジョブキュー(arq)経由で非同期実行する。
 
 POST /api/v1/jobs        投入。202 Accepted + job_id を返す(結果はポーリングで取得)。
 GET  /api/v1/jobs/{id}   状態・結果のポーリング。
@@ -12,7 +11,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 
 from app.api.deps import CurrentUserDep, RedisDep, SessionDep
 from app.schemas.job import JobStatusResponse, JobSubmitResponse
@@ -46,18 +45,7 @@ async def get_job(
     current_user: CurrentUserDep,
 ) -> JobStatusResponse:
     """ジョブの状態をポーリングする。succeeded なら result に検証済みの解が入る。"""
-    job = await JobService(session, redis).get_status(job_id)
-    if job is None or (job.user_id != current_user.id and not current_user.is_superuser):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
-    payload = job.payload
-    return JobStatusResponse(
-        job_id=job.id,
-        problem_type=job.problem_type,
-        status=job.status,
-        result=payload.get("result"),
-        problem_id=payload.get("problem_id"),
-        solution_id=payload.get("solution_id"),
-        error=payload.get("error"),
-        created_at=job.created_at,
-        updated_at=job.updated_at,
+    job = await JobService(session, redis).get_for_user(
+        job_id, user_id=current_user.id, is_superuser=current_user.is_superuser
     )
+    return JobStatusResponse.from_job(job)

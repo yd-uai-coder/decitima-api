@@ -1,11 +1,10 @@
-# DeciTima samples │ Phase 10
-"""作業単位 10-4: simulate API ── 複数シナリオを非同期ジョブとして投入する。
+"""simulate API ── 複数シナリオを非同期ジョブとして投入する。
 
 POST /api/v1/simulate    投入。202 Accepted + job_id を返す(結果はポーリングで取得)。
 
-結果のポーリングは既存の `GET /api/v1/jobs/{id}`(Phase 9-8)をそのまま再利用する ──
+結果のポーリングは既存の `GET /api/v1/jobs/{id}`をそのまま再利用する ──
 `JobStatusResponse.result` の型を Phase 10-4 で広げてあるので、専用の GET エンドポイントは
-新設しない(進行のルール #17: 実消費者が既にあるものを増やさない)。
+新設しない。
 """
 
 from __future__ import annotations

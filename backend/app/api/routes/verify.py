@@ -8,7 +8,7 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentUserDep, RedisDep
 from app.schemas.optimization import VerifyRequest, VerifyResponse
-from app.services.verify import VerifyService
+from app.services.verify_request import VerifyService
 
 router = APIRouter(prefix="/verify", tags=["verify"])
 

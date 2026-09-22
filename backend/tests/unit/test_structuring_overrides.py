@@ -1,10 +1,9 @@
-# DeciTima samples │ Phase 11(11-2: EXTRACTORS/build_overrides/catalog_ids/ground_references
 # / 11-4: catalog_entries)
 """作業単位 11-2: `EXTRACTORS` / `build_overrides` / `catalog_ids` / `ground_references`。
 作業単位 11-4: `catalog_entries`。
 
 テスト対象 / ドライバ / スタブ:
-- 対象: `app.services.structuring` の純粋関数群
+- 対象: `app.services.structuring_support` の純粋関数群
 - ドライバ: このテスト関数。`apply_overrides`(Phase 10)と組み合わせ、LLM 無しで
   「抽出結果 → overrides → マージ済み問題」の一連を再現する
 - スタブ不要 ── 対象・依存(Phase 10 apply_overrides・ベース問題)とも純粋
@@ -15,7 +14,7 @@ from __future__ import annotations
 from app.domain.problems.base_problems import get_base_problem
 from app.schemas.structuring import ExtractedObjective, RouteDataPatch
 from app.services.simulation import apply_overrides
-from app.services.structuring import (
+from app.services.structuring_support import (
     EXTRACTORS,
     build_overrides,
     catalog_entries,

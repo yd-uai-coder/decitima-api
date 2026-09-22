@@ -6,6 +6,4 @@
 
 services / repositories / DB / HTTP / Redis / ai に依存してはならない
 （依存してよいのは app.domain と標準ライブラリ、実務トラックのみ外部ソルバー）。
-
-設計は textbook/Phase-0/Phase-0-4.md、実装は Phase 1（作業単位 1-2〜1-4）で行う。
 """

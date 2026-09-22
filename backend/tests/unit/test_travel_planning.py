@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 7
 """作業単位 7-3: travel_planning problem_type の配線(schema union / semantic / structure)。
 
 テスト対象 / ドライバ / スタブ:

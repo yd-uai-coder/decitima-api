@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 11
 """作業単位 11-7: `ProblemStructuringService`。
 
 テスト対象 / ドライバ / スタブ:

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.api.error_handlers import register_error_handlers
+from app.api.middleware import BodySizeLimitMiddleware
 from app.api.routes import api_router
 from app.core.config import settings
 from app.core.database import engine
@@ -30,12 +31,16 @@ app = FastAPI(
     openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
+app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.MAX_REQUEST_BODY_BYTES)
+
+# 使うメソッド・ヘッダだけを許可する(origin は設定で限定済み。ワイルドカードは資格情報つきの
+# CORS では避けるのが定石)。UI は Authorization と Content-Type だけを送る(lib/api/client.ts)。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 register_error_handlers(app)

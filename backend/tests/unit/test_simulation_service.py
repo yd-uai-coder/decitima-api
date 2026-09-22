@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 10
 """作業単位 10-2: run_simulation(シナリオ実行オーケストレーション)。
 作業単位 10-3: sensitivity(二分探索による閾値発見)の配線。
 

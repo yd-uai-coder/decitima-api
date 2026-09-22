@@ -1,4 +1,3 @@
-# DeciTima samples │ Phase 10
 """作業単位 10-1: apply_overrides(汎用 override マージ)。
 
 テスト対象 / ドライバ / スタブ:
